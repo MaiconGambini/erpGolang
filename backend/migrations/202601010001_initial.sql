@@ -1,0 +1,1 @@
+-- Initial migration placeholder. Atlas-managed schema changes will start here.

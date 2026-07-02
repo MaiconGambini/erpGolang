@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+coverage/
+.DS_Store
+*.log
+tmp/
+bin/
+backend/tmp/
+frontend/.vite/
+frontend/test-results/
+frontend/playwright-report/
+.opencode/
+goERP initial screens (1)/

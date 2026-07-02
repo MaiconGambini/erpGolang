@@ -1,0 +1,1 @@
+-- Customer sqlc queries will be added with the customers implementation.

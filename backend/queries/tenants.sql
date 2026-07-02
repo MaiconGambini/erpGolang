@@ -1,0 +1,1 @@
+-- Tenant sqlc queries will be added with the tenants implementation.

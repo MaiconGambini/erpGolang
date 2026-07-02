@@ -1,0 +1,1 @@
+-- User sqlc queries will be added with the users implementation.

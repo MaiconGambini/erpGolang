@@ -1,0 +1,34 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: goerp-postgres
+    environment:
+      POSTGRES_DB: goerp
+      POSTGRES_USER: goerp
+      POSTGRES_PASSWORD: goerp
+    ports:
+      - "5432:5432"
+    volumes:
+      - goerp_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U goerp -d goerp"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    container_name: goerp-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - goerp_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  goerp_postgres_data:
+  goerp_redis_data:

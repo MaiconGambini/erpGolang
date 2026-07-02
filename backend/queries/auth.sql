@@ -1,0 +1,1 @@
+-- Auth sqlc queries will be added with the auth implementation.

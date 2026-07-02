@@ -1,0 +1,1 @@
+-- Audit sqlc queries will be added with the audit implementation.
