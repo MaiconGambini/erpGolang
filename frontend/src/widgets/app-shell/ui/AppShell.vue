@@ -5,6 +5,7 @@
       <RouterLink to="/">Dashboard</RouterLink>
       <RouterLink to="/customers">Clientes</RouterLink>
       <RouterLink to="/products">Produtos</RouterLink>
+      <RouterLink to="/suppliers">Fornecedores</RouterLink>
     </aside>
     <div class="main">
       <header class="topbar">

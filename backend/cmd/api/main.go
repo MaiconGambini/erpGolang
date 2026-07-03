@@ -14,8 +14,11 @@ import (
 	"github.com/MaiconGambini/erpGolang/backend/internal/audit"
 	"github.com/MaiconGambini/erpGolang/backend/internal/auth"
 	"github.com/MaiconGambini/erpGolang/backend/internal/config"
-	"github.com/MaiconGambini/erpGolang/backend/internal/products"
+	"github.com/MaiconGambini/erpGolang/backend/internal/customers"
+	"github.com/MaiconGambini/erpGolang/backend/internal/platform/database"
 	"github.com/MaiconGambini/erpGolang/backend/internal/platform/logger"
+	"github.com/MaiconGambini/erpGolang/backend/internal/products"
+	"github.com/MaiconGambini/erpGolang/backend/internal/suppliers"
 	redisplatform "github.com/MaiconGambini/erpGolang/backend/internal/platform/redis"
 	"github.com/MaiconGambini/erpGolang/backend/internal/platform/validation"
 	"github.com/MaiconGambini/erpGolang/backend/internal/tenants"
@@ -57,6 +60,7 @@ func main() {
 			tenants.NewModule(),
 			customers.NewModule(),
 			products.NewModule(),
+			suppliers.NewModule(),
 			audit.NewModule(),
 		},
 	}
