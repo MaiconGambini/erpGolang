@@ -6,4 +6,5 @@ export interface Customer {
   phone?: string
   active: boolean
   createdAt: string
+  updatedAt?: string
 }

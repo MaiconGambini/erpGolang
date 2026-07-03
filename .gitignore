@@ -9,6 +9,7 @@ coverage/
 tmp/
 bin/
 backend/tmp/
+backend/*.exe
 frontend/.vite/
 frontend/test-results/
 frontend/playwright-report/

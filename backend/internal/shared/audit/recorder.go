@@ -12,4 +12,5 @@ type Event struct {
 
 type Recorder interface {
 	Record(ctx context.Context, event Event) error
+	RecordWithPayload(ctx context.Context, event Event, before, after any) error
 }

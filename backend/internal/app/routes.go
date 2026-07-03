@@ -1,40 +1,67 @@
 package app
 
 import (
-	"encoding/json"
-	"log/slog"
+	"context"
 	"net/http"
+
+	"github.com/MaiconGambini/erpGolang/backend/internal/platform/middleware"
+	"github.com/MaiconGambini/erpGolang/backend/internal/shared/httpx"
+	"github.com/go-chi/chi/v5"
 )
 
 func NewRouter(deps Dependencies) http.Handler {
 	logger := deps.Logger
 	if logger == nil {
-		logger = slog.Default()
+		panic("app: logger is required")
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-	})
-	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
-	})
-	mux.HandleFunc("GET /api/v1", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]string{"name": "goERP API", "version": "v1"})
+	r := chi.NewRouter()
+	r.Use(middleware.RequestID)
+	r.Use(middleware.Logger(logger))
+	r.Use(middleware.Recovery(logger))
+	r.Use(middleware.CORS(deps.Config.AllowedOrigins))
+
+	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		httpx.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
-	return loggingMiddleware(logger, mux)
+	r.Get("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		if deps.DB != nil {
+			if err := deps.DB.Ping(ctx); err != nil {
+				httpx.Error(w, "NOT_READY", "database unavailable", http.StatusServiceUnavailable)
+				return
+			}
+		}
+		if deps.Redis != nil {
+			if err := deps.Redis.Ping(ctx).Err(); err != nil {
+				httpx.Error(w, "NOT_READY", "redis unavailable", http.StatusServiceUnavailable)
+				return
+			}
+		}
+		httpx.JSON(w, http.StatusOK, map[string]string{"status": "ready"})
+	})
+
+	r.Route("/api/v1", func(api chi.Router) {
+		api.Get("/", func(w http.ResponseWriter, r *http.Request) {
+			httpx.JSON(w, http.StatusOK, map[string]string{
+				"name":    "goERP API",
+				"version": "v1",
+			})
+		})
+
+		moduleDeps := deps.deps()
+		for _, mod := range deps.Modules {
+			mod.Register(api, moduleDeps)
+		}
+	})
+
+	return r
 }
 
-func loggingMiddleware(logger *slog.Logger, next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger.Info("http request", slog.String("method", r.Method), slog.String("path", r.URL.Path))
-		next.ServeHTTP(w, r)
-	})
-}
-
-func writeJSON(w http.ResponseWriter, status int, payload any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]any{"data": payload})
+func PingDB(ctx context.Context, deps Dependencies) error {
+	if deps.DB == nil {
+		return nil
+	}
+	return deps.DB.Ping(ctx)
 }

@@ -4,18 +4,13 @@
       <div class="logo">go<span>ERP</span></div>
       <h1>Acesse sua conta</h1>
       <p>Entre para gerenciar sua operação</p>
-      <form class="form">
-        <label>Empresa<input placeholder="acme" /></label>
-        <label>E-mail<input placeholder="ana.souza@empresa.com.br" /></label>
-        <label>Senha<input type="password" placeholder="Sua senha" /></label>
-        <AppButton type="submit">Entrar</AppButton>
-      </form>
+      <LoginForm />
     </section>
   </main>
 </template>
 
 <script setup lang="ts">
-import AppButton from '@/shared/ui/AppButton.vue'
+import LoginForm from '@/features/auth/login/ui/LoginForm.vue'
 </script>
 
 <style scoped>
@@ -53,26 +48,5 @@ h1 {
 p {
   color: var(--color-text-muted);
   margin: 0 0 28px;
-}
-
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-label {
-  color: var(--color-text-secondary);
-  display: flex;
-  flex-direction: column;
-  font-size: 13px;
-  gap: 6px;
-}
-
-input {
-  border: 1px solid #cbd5e1;
-  border-radius: var(--radius-md);
-  font: inherit;
-  padding: 10px 12px;
 }
 </style>

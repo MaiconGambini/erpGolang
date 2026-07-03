@@ -9,4 +9,16 @@ export const useSessionStore = defineStore('session', {
   getters: {
     isAuthenticated: (state) => Boolean(state.accessToken),
   },
+  actions: {
+    setAccess(token: string) {
+      this.accessToken = token
+    },
+    setUser(user: SessionUser) {
+      this.user = user
+    },
+    clear() {
+      this.accessToken = null
+      this.user = null
+    },
+  },
 })

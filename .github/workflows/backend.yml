@@ -1,0 +1,54 @@
+name: Backend CI
+
+on:
+  push:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: goerp
+          POSTGRES_PASSWORD: goerp
+          POSTGRES_DB: goerp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U goerp"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: Migrate
+        working-directory: backend
+        env:
+          DATABASE_URL: postgres://goerp:goerp@localhost:5432/goerp?sslmode=disable
+        run: go run ./cmd/migrate
+      - name: Test
+        working-directory: backend
+        env:
+          DATABASE_URL: postgres://goerp:goerp@localhost:5432/goerp?sslmode=disable
+          REDIS_URL: redis://localhost:6379/0
+          JWT_ACCESS_SECRET: test-access
+          JWT_REFRESH_SECRET: test-refresh
+        run: |
+          go vet ./...
+          go test ./...
+          go build ./...

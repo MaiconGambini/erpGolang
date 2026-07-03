@@ -1,4 +1,4 @@
-.PHONY: dev test build fmt vet sqlc migrate-apply migrate-status
+.PHONY: dev test build fmt vet sqlc migrate-apply migrate-status migrate test-integration
 
 dev:
 	go run ./cmd/api
@@ -6,8 +6,14 @@ dev:
 test:
 	go test ./...
 
+test-integration:
+	go test -tags=integration ./...
+
 build:
 	go build ./...
+
+migrate:
+	go run ./cmd/migrate
 
 fmt:
 	gofmt -w .

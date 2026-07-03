@@ -44,12 +44,23 @@ CI/CD: GitHub Actions
 Monitoramento mínimo: logs estruturados → arquivo → Loki (opcional fase 2)
 
 
-Fase 0 — Decisões já fechadas
-Multi-tenant via tenant_id, JWT (access 15min + refresh em cookie httpOnly), sqlc + Atlas, primeiro domínio customers. Adiciono três decisões novas que valem fechar antes de começar:
+Fase 0 — Decisões fechadas antes de começar o build
+Multi-tenant via tenant_id, router chi, JWT access curto + refresh em cookie httpOnly, sqlc + Atlas, schema.sql como fonte da verdade, primeiro domínio de negócio customers. Essas decisões ficam congeladas para evitar refatoração antes do MVP local:
 
-Monorepo com backend/ + frontend/ na raiz. git, README, docker-compose.yml na raiz.
-Versionamento de API via path: /api/v1/*. Define agora pra não mexer depois.
-Identificação de tenant: pelo tenant_slug no body do login + claim tenant_id no JWT. Sem subdomínio no MVP (mais simples).
+1. Monorepo com backend/ + frontend/ na raiz. git, README, docker-compose.dev.yml na raiz.
+2. Router backend: chi/v5. Não usar net/http ServeMux como roteador principal da aplicação.
+3. Versionamento de API via path: /api/v1/*. Define agora pra não mexer depois.
+4. Identificação de tenant: pelo tenant_slug no body do login + claim tenant_id no JWT. Sem subdomínio no MVP.
+5. Ordem de build: fundação backend → schema/migrations/sqlc → auth/users/tenants → middleware auth/tenant → customers → frontend auth → frontend customers → validação local.
+6. Email de usuário: único globalmente no MVP.
+7. Customer document: opcional, mas único por tenant quando presente e não deletado.
+8. Delete de customer: soft delete com deleted_at. Campo active representa estado de negócio, não deleção.
+9. Roles no schema: admin, manager, operator, viewer. No MVP local, pode aplicar só admin nas rotas administrativas.
+10. Refresh session: fonte de verdade em Postgres na tabela auth_sessions, com hash do refresh token. Redis fica para rate limit/cache/coordenação, não como única fonte de sessão.
+11. Frontend: Vue 3 + FSD + PrimeVue como UI padrão. Componentes Vue podem usar PascalCase; slices de feature devem ser verb-first em kebab-case (create-customer, edit-customer, delete-customer, list-customers).
+12. Forms: vee-validate + zod.
+
+Regra de início: não construir telas soltas antes da fundação backend/auth/tenant. O primeiro slice de implementação é Backend Foundation with chi.
 
 
 Fase 1 — Setup do monorepo
@@ -57,36 +68,29 @@ Estrutura raiz:
 erp/
 ├── backend/
 ├── frontend/
-├── docker-compose.yml      # postgres + redis pra dev
+├── docker-compose.dev.yml  # postgres + redis pra dev
 ├── .editorconfig
 ├── .gitignore
 └── README.md
-docker-compose.yml sobe Postgres 16 e Redis 7 com volumes nomeados. Backend e front rodam fora do compose em dev (mais rápido pra hot reload).
+docker-compose.dev.yml sobe Postgres 16 e Redis 7 com volumes nomeados. Backend e front rodam fora do compose em dev (mais rápido pra hot reload).
 Entregável: docker compose up -d sobe os serviços, psql conecta no Postgres, redis-cli ping responde.
 
 Fase 2 — Esqueleto do backend
-Estrutura final (essa não muda mais):
+Estrutura final canônica para o MVP local (mantém o layout simples já iniciado no repo):
 backend/
 ├── cmd/
 │   └── api/
 │       └── main.go
 ├── internal/
-│   ├── app/
-│   │   ├── config/         # struct + load env
-│   │   ├── database/       # pool pgx + healthcheck
-│   │   ├── cache/          # client Redis
-│   │   ├── jwt/            # gerar + validar tokens
-│   │   ├── middleware/     # logger, requestid, cors, auth, tenant, recovery
-│   │   ├── httpx/          # response helpers, errors, paginação
-│   │   ├── validator/      # wrapper do go-playground/validator
-│   │   ├── tenant/         # context helpers
-│   │   └── audit/          # serviço de audit log compartilhado
-│   ├── modules/
-│   │   ├── module.go       # interface Module
-│   │   └── register.go     # slice de módulos a montar
-│   └── routes/
-│       └── routes.go       # monta tudo no chi.Router
-├── migrations/             # gerado pelo Atlas
+│   ├── app/                # composition root, deps, routes, módulo registration
+│   ├── auth/               # login, refresh, logout, me, sessions/tokens
+│   ├── users/              # usuários do tenant, roles, ativação/desativação
+│   ├── tenants/            # identidade/status do tenant, current tenant
+│   ├── customers/          # primeiro CRUD de negócio e módulo referência
+│   ├── audit/              # append-only audit log
+│   ├── shared/             # errors, pagination, authctx, tenantctx, audit interface
+│   └── platform/           # database, redis, logger, validation, httpserver
+├── migrations/             # migrations versionadas pelo Atlas
 ├── schema.sql              # fonte da verdade do schema
 ├── atlas.hcl
 ├── sqlc.yaml
@@ -95,16 +99,18 @@ backend/
 ├── Dockerfile
 ├── Makefile
 └── go.mod
-Makefile com os comandos do dia-a-dia: make dev (air), make migrate (atlas apply), make migrate-diff name=xxx (atlas diff), make sqlc (gera código), make test, make lint.
-Entregável: make dev sobe o servidor com hot reload, /api/v1/health retorna 200.
+Makefile com os comandos do dia-a-dia: make dev, make migrate-apply, make migrate-status, make sqlc, make test, make vet, make build.
+Entregável: servidor sobe com chi, /healthz retorna 200, /readyz checa DB + Redis, /api/v1 retorna metadata da API.
 
 Fase 3 — Fundação do backend
 Implementação na ordem (cada item vira um PR pequeno):
 
+Router chi — r := chi.NewRouter(), middleware base e subrouter /api/v1.
 Config tipada — struct anotada com env:, falha na inicialização se algo crítico tá faltando.
 Pool Postgres — pgxpool.New, healthcheck, logs de queries lentas.
 Cliente Redis — com ping na boot.
-JWT service — GenerateAccessToken(userID, tenantID, role), GenerateRefreshToken(...), Validate(token). Refresh sempre persiste jti no Redis com TTL.
+JWT service — GenerateAccessToken(userID, tenantID, role), Validate(token). Access token curto (15min).
+Refresh service — refresh token aleatório em cookie HttpOnly; hash persistido em auth_sessions no Postgres; rotação no refresh; logout revoga a sessão. Redis pode apoiar rate limit, mas não é a fonte de verdade.
 Response helpers (httpx) — JSON(w, status, data), Error(w, code, message), Paginated(w, data, meta). Formato padrão definido.
 Erros estruturados — tipo httpx.AppError{Code, Message, Status, Details}. Helper httpx.WriteError(w, err).
 Validador — wrapper que transforma erro do validator em details no response.
@@ -115,30 +121,43 @@ Context helpers — tenant.FromContext(ctx) (uuid.UUID, error) e tenant.MustFrom
 Audit service — audit.Log(ctx, action, entity, entityID, before, after). Tabela audit_logs criada nessa fase.
 Interface Module:
 
-go    type Module interface {
-        Name() string
-        Register(r chi.Router, deps Deps)
-    }
-    type Deps struct {
-        DB     *pgxpool.Pool
-        Redis  *redis.Client
-        JWT    *jwt.Service
-        Audit  *audit.Service
-        Logger *slog.Logger
-    }
+```go
+type Module interface {
+    Name() string
+    Register(r chi.Router, deps Deps)
+}
 
-Boot do app — routes.go faz for _, m := range modules.All { m.Register(r, deps) }.
+type Deps struct {
+    DB     *pgxpool.Pool
+    Redis  *redis.Client
+    JWT    *jwt.Service
+    Audit  *audit.Service
+    Logger *slog.Logger
+}
+```
+
+Boot do app — routes.go registra módulos explicitamente ou via slice central em internal/app. O importante é todo módulo receber deps por composição, não criar DB/Redis sozinho.
 
 Entregável: estrutura pronta pra plugar módulos, nenhum módulo de negócio ainda.
 
-Fase 4 — Módulo auth + users + tenants
+Fase 4 — Schema + sqlc + módulo auth/users/tenants
 Aplica o template do módulo. Tabelas e endpoints como definidos antes. Pontos da arquitetura que valem reforçar:
+
+Schema inicial obrigatório antes dos services:
+- tenants: id, slug único, name, status, timestamps.
+- users: id, tenant_id, email único globalmente, password_hash, name, role, active, timestamps.
+- auth_sessions: id, tenant_id, user_id, refresh_token_hash, expires_at, revoked_at, created_at, rotated_at opcional.
+- customers: id, tenant_id, name, document nullable, email nullable, phone nullable, active, deleted_at, timestamps. Índice único parcial em tenant_id + document quando document não é null e deleted_at é null.
+- audit_logs: id, tenant_id, actor_user_id nullable, action, entity_type, entity_id, before, after, created_at.
+
+Fluxo schema-first:
+schema.sql → atlas migrate diff/apply → sqlc generate → código Go compila.
 
 auth e users são módulos separados. Auth lida com login/refresh/logout/me. Users lida com CRUD de usuários (admin cria, lista, desativa).
 tenants é módulo mínimo no MVP — só GET /tenants/current (info do tenant logado). Cadastro de novo tenant fica fora do MVP (ou faz via seed/CLI).
 Seed CLI em cmd/seed/main.go: cria tenant + admin. Roda com go run ./cmd/seed.
 
-Entregável: dois tenants no banco via seed, login funcional via curl, /auth/me retorna user correto, isolamento entre tenants validado.
+Entregável: dois tenants no banco via seed, login funcional via curl, /api/v1/auth/me retorna user correto, refresh/logout funcionam, isolamento entre tenants validado.
 
 Fase 5 — Esqueleto do frontend (FSD de verdade)
 Estrutura completa do frontend/src/:
@@ -227,6 +246,9 @@ Slice é isolado: features/customer/create-customer não importa de features/cus
 Cada slice tem segmentos padronizados: ui/, model/, api/, lib/. Não mistura.
 Public API por slice: cada slice exporta via index.ts só o que outras camadas podem usar. Resto é privado.
 shared não tem regra de negócio, só utilitários e UI burra.
+Arquivos Vue podem usar PascalCase quando forem componentes (CustomerTable.vue, LoginPage.vue). Pastas de slices continuam kebab-case e verb-first.
+PrimeVue é a UI padrão para CRUD: DataTable, Dialog, InputText, Toast, Skeleton/ProgressSpinner. Evitar misturar CRUD final com tabela/form custom sem motivo.
+Forms usam vee-validate + zod. Se o pacote não estiver instalado, adicionar antes de implementar formulários reais.
 
 Por que cada camada existe no seu ERP
 
@@ -243,11 +265,11 @@ Entregável: npm run dev abre tela em branco, estrutura de pastas toda criada, p
 Fase 6 — Auth no front (entities/session + features/auth + processes/auth)
 Ordem de implementação:
 
-shared/api/client.ts: axios com baseURL, withCredentials: true, interceptor de request que injeta Authorization do store de sessão, interceptor de response que em 401 chama /auth/refresh uma vez e refaz a request original. Usa flag pra evitar loop.
+shared/api/client.ts: axios com baseURL /api/v1, withCredentials: true, interceptor de request que injeta Authorization do store de sessão, interceptor de response que em 401 chama /auth/refresh uma vez e refaz a request original. Usa flag pra evitar loop.
 entities/session/model/session.store.ts (Pinia): state { accessToken: string | null, user: User | null }, actions setAccess, setUser, clear, getter isAuthenticated.
 entities/session/api/session.api.ts: funções login(payload), refresh(), logout(), me(). São só chamadas HTTP, sem lógica de estado.
 features/auth/login/model/use-login.ts: composable que usa Vue Query mutation, chama session.api.login, popula o store, redireciona.
-features/auth/login/ui/LoginForm.vue: form com vee-validate + zod, três campos (tenant_slug, email, password), chama use-login.
+features/auth/login/ui/LoginForm.vue: form com vee-validate + zod, três campos (tenantSlug, email, password), chama use-login.
 pages/login/ui/LoginPage.vue: layout centralizado + <LoginForm />.
 processes/auth/boot-auth.ts: chamado no main.ts antes de montar o app. Tenta refresh(). Se ok, popula store. Se falhar, segue (router guard cuida do resto).
 shared/router/guards.ts: requireAuth redireciona pra /login se store vazio. Aplicado em todas as rotas privadas.
@@ -257,18 +279,25 @@ Entregável: app carrega, redireciona pra login, loga, cai no shell autenticado,
 
 Fase 7 — Customers ponta a ponta
 Backend: aplica o template do módulo (já detalhado). Resultado é os 5 endpoints REST com tenant_scope e audit log.
+Endpoints finais do MVP local:
+- GET /api/v1/customers?limit=20&offset=0&search=&active=
+- POST /api/v1/customers
+- GET /api/v1/customers/{id}
+- PATCH /api/v1/customers/{id}
+- DELETE /api/v1/customers/{id} (soft delete)
+
 Frontend, seguindo FSD à risca:
 
-entities/customer/model/types.ts: interface Customer { id, name, document?, email?, phone?, active, createdAt }.
+entities/customer/model/types.ts: interface Customer { id, name, document?, email?, phone?, active, createdAt, updatedAt }.
 entities/customer/model/schemas.ts: zod schemas pra create/update (compartilhados entre features).
 entities/customer/api/customer.api.ts: list(params), get(id), create(data), update(id, data), remove(id).
-features/customer/list-customers/model/use-list-customers.ts: Vue Query useQuery com chave ['customers', { page, search }].
+features/customer/list-customers/model/use-list-customers.ts: Vue Query useQuery com chave ['customers', { limit, offset, search, active }].
 features/customer/create-customer/: dialog + composable com mutation; on success faz queryClient.invalidateQueries(['customers']).
 features/customer/edit-customer/ e delete-customer/: mesmo padrão.
 widgets/customer-table/ui/CustomerTable.vue: usa PrimeVue DataTable, recebe dados de use-list-customers, dispara ações de edit/delete.
 pages/customers/ui/CustomersPage.vue: header + search bar + <CustomerTable /> + <CreateCustomerDialog />.
 
-Entregável: MVP 1 funcional. CRUD completo, multi-tenant isolado, com search + paginação.
+Entregável: MVP local funcional. CRUD completo com backend real, multi-tenant isolado, search + paginação server-side, estados loading/empty/error/success.
 
 Fase 8 — Testes
 Backend (go test)
@@ -276,7 +305,7 @@ Três níveis, cada um com propósito:
 1. Testes de unidade — só pra lógica pura (services com regras de negócio). Mocka repository via interface. Roda em milissegundos.
 Estrutura: cada service/customer_service.go tem um service/customer_service_test.go ao lado. Usa testify/require.
 2. Testes de integração — repository + DB real via testcontainers-go. Sobe Postgres em container temporário, aplica migrations, roda os testes, derruba. É lento (5-10s pra subir), então roda só em CI ou sob demanda.
-Pasta internal/modules/customers/db/repo_test.go. Usa build tag //go:build integration pra separar de unit tests.
+Pasta internal/customers/... ou internal/testutil/... conforme o módulo. Usa build tag //go:build integration pra separar de unit tests.
 3. Testes de handler (HTTP) — testa o controller subindo httptest.NewServer com o módulo montado. Verifica status code, formato de response, regras de auth/tenant.
 Aqui você pega bugs de middleware, validação, formato de erro. Vale ter pelo menos:
 
@@ -298,14 +327,48 @@ Tentar acessar /customers sem login → redireciona
 
 E2E roda contra ambiente real (back + front + DB de teste). Em CI, sobe via docker compose.
 
+Gate mínimo para considerar o MVP local pronto:
+
+Backend:
+```bash
+cd backend
+go fmt ./...
+go vet ./...
+go test ./...
+go build ./...
+```
+
+Frontend:
+```bash
+cd frontend
+npm ci
+npm run typecheck
+npm run test:unit
+npm run build
+```
+
+Infra:
+```bash
+docker compose -f docker-compose.dev.yml config
+docker compose -f docker-compose.dev.yml up -d
+```
+
+Smoke manual ou Playwright:
+- login funciona
+- refresh mantém sessão após reload
+- logout limpa sessão
+- criar/listar/editar/deletar customer usa backend real
+- tenant A não enxerga dados do tenant B
+- writes de customers geram audit_logs
+
 Fase 9 — Observabilidade e produção-readiness
 Antes de pensar em deploy, garante essas peças:
 
 Logs estruturados: já vem do slog. Garante que toda request loga request_id, tenant_id, user_id, method, path, status, duration_ms.
-Health checks: /api/v1/health (vivo) e /api/v1/ready (DB + Redis ok). Plataformas de deploy usam isso.
+Health checks: /healthz (vivo) e /readyz (DB + Redis ok). Plataformas de deploy usam isso. Rotas de negócio ficam sob /api/v1.
 Graceful shutdown: signal.NotifyContext no main, server.Shutdown(ctx) com timeout de 30s.
 Timeouts: ReadTimeout, WriteTimeout, IdleTimeout no http.Server. Sem isso uma request lenta trava o processo.
-Rate limit no /auth/login: limite por IP no Redis (ex: 5 tentativas / 15min). Evita brute force.
+Rate limit no /api/v1/auth/login: limite por IP no Redis (ex: 5 tentativas / 15min). Evita brute force.
 CORS configurável por env (ALLOWED_ORIGINS).
 Erros não vazam internals: 500 retorna {code: "INTERNAL_ERROR"} sem stack trace pro cliente. Stack trace só no log.
 Secrets via env, nunca commitados. .env.example no repo, .env no gitignore.
@@ -416,7 +479,7 @@ A partir do MVP 1, adicionar um novo módulo de negócio (produtos, fornecedores
 
 Edita schema.sql com a tabela
 atlas migrate diff → atlas migrate apply
-Cria pasta internal/modules/{nome} copiando customers como template
+Cria pasta internal/{nome} copiando customers como template
 Escreve queries no queries.sql, roda sqlc generate
 Implementa service + controller
 Registra no modules/register.go

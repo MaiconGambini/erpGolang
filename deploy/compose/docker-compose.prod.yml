@@ -1,4 +1,15 @@
 services:
+  migrate:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.migrate
+    env_file:
+      - ${GOERP_ENV_FILE:?Set GOERP_ENV_FILE to a real production env file}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   backend:
     build:
       context: ../../backend
@@ -6,6 +17,8 @@ services:
       - ${GOERP_ENV_FILE:?Set GOERP_ENV_FILE to a real production env file}
     restart: unless-stopped
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:

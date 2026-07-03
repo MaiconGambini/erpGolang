@@ -1,7 +1,7 @@
 {$GOERP_DOMAIN} {
   encode gzip zstd
 
-  handle_path /api/* {
+  handle /api/* {
     reverse_proxy backend:8080
   }
 

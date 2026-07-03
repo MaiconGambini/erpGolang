@@ -1,11 +1,21 @@
 package redis
 
-import "context"
+import (
+	"context"
+	"fmt"
 
-type Client struct{}
+	goredis "github.com/redis/go-redis/v9"
+)
 
-func Open(ctx context.Context, redisURL string) (*Client, error) {
-	_ = ctx
-	_ = redisURL
-	return &Client{}, nil
+func Open(ctx context.Context, redisURL string) (*goredis.Client, error) {
+	opts, err := goredis.ParseURL(redisURL)
+	if err != nil {
+		return nil, fmt.Errorf("parse redis url: %w", err)
+	}
+	client := goredis.NewClient(opts)
+	if err := client.Ping(ctx).Err(); err != nil {
+		_ = client.Close()
+		return nil, fmt.Errorf("ping redis: %w", err)
+	}
+	return client, nil
 }

@@ -11,15 +11,57 @@ import (
 	"time"
 
 	"github.com/MaiconGambini/erpGolang/backend/internal/app"
+	"github.com/MaiconGambini/erpGolang/backend/internal/audit"
+	"github.com/MaiconGambini/erpGolang/backend/internal/auth"
 	"github.com/MaiconGambini/erpGolang/backend/internal/config"
+	"github.com/MaiconGambini/erpGolang/backend/internal/customers"
+	"github.com/MaiconGambini/erpGolang/backend/internal/platform/database"
 	"github.com/MaiconGambini/erpGolang/backend/internal/platform/logger"
+	redisplatform "github.com/MaiconGambini/erpGolang/backend/internal/platform/redis"
+	"github.com/MaiconGambini/erpGolang/backend/internal/platform/validation"
+	"github.com/MaiconGambini/erpGolang/backend/internal/tenants"
+	"github.com/MaiconGambini/erpGolang/backend/internal/users"
 )
 
 func main() {
 	cfg := config.Load()
 	log := logger.New(cfg.AppEnv)
 
-	handler := app.NewRouter(app.Dependencies{Logger: log})
+	ctx := context.Background()
+	db, err := database.Open(ctx, cfg.DatabaseURL)
+	if err != nil {
+		log.Error("database connection failed", slog.Any("error", err))
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	redisClient, err := redisplatform.Open(ctx, cfg.RedisURL)
+	if err != nil {
+		log.Error("redis connection failed", slog.Any("error", err))
+		os.Exit(1)
+	}
+	defer func() { _ = redisClient.Close() }()
+
+	validator := validation.New()
+	auditRecorder := audit.NewService(db)
+
+	deps := app.Dependencies{
+		Config:    cfg,
+		DB:        db,
+		Redis:     redisClient,
+		Validator: validator,
+		Audit:     auditRecorder,
+		Logger:    log,
+		Modules: []app.Module{
+			auth.NewModule(),
+			users.NewModule(),
+			tenants.NewModule(),
+			customers.NewModule(),
+			audit.NewModule(),
+		},
+	}
+
+	handler := app.NewRouter(deps)
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
 		Handler:           handler,
@@ -41,9 +83,9 @@ func main() {
 	defer stop()
 	<-shutdownCtx.Done()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	shutdown, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := server.Shutdown(ctx); err != nil {
+	if err := server.Shutdown(shutdown); err != nil {
 		log.Error("graceful shutdown failed", slog.Any("error", err))
 		os.Exit(1)
 	}

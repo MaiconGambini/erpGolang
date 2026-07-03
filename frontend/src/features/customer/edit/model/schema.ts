@@ -1,1 +1,1 @@
-export { createCustomerSchema as editCustomerSchema } from '../../create/model/schema'
+export { editCustomerSchema } from '@/entities/customer/model/schemas'

@@ -1,4 +1,4 @@
-.PHONY: infra-up infra-down infra-logs backend-dev backend-test backend-build frontend-dev frontend-build validate
+.PHONY: infra-up infra-down infra-logs backend-dev backend-test backend-build frontend-dev frontend-build validate validate-prod migrate prod-config
 
 infra-up:
 	docker compose -f docker-compose.dev.yml up -d
@@ -27,4 +27,12 @@ frontend-build:
 validate:
 	docker compose -f docker-compose.dev.yml config
 	cd backend && go test ./... && go build ./...
-	cd frontend && npm run build
+	cd frontend && npm ci && npm run typecheck && npm run build
+
+prod-config:
+	GOERP_ENV_FILE="$(CURDIR)/deploy/env/production.env.example" GOERP_DOMAIN=example.com docker compose -f deploy/compose/docker-compose.prod.yml config
+
+migrate:
+	cd backend && go run ./cmd/migrate
+
+validate-prod: prod-config

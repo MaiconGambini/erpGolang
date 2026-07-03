@@ -5,11 +5,24 @@
       <RouterLink to="/">Dashboard</RouterLink>
       <RouterLink to="/customers">Clientes</RouterLink>
     </aside>
-    <main class="content">
-      <slot />
-    </main>
+    <div class="main">
+      <header class="topbar">
+        <span class="user">{{ session.user?.name ?? 'Usuário' }}</span>
+        <LogoutButton />
+      </header>
+      <main class="content">
+        <slot />
+      </main>
+    </div>
   </div>
 </template>
+
+<script setup lang="ts">
+import { useSessionStore } from '@/entities/session/model/session.store'
+import LogoutButton from '@/features/auth/logout/ui/LogoutButton.vue'
+
+const session = useSessionStore()
+</script>
 
 <style scoped>
 .shell {
@@ -47,6 +60,26 @@ a {
 a.router-link-active {
   background: #eff6ff;
   color: var(--color-brand-hover);
+}
+
+.main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.topbar {
+  align-items: center;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 12px 32px;
+}
+
+.user {
+  color: var(--color-text-secondary);
+  font-size: 14px;
 }
 
 .content {
