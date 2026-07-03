@@ -4,6 +4,7 @@
       <div class="logo">go<span>ERP</span></div>
       <RouterLink to="/">Dashboard</RouterLink>
       <RouterLink to="/customers">Clientes</RouterLink>
+      <RouterLink to="/products">Produtos</RouterLink>
     </aside>
     <div class="main">
       <header class="topbar">
