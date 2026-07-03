@@ -4,6 +4,7 @@ import DashboardPage from '@/pages/dashboard/ui/DashboardPage.vue'
 import CustomersPage from '@/pages/customers/ui/CustomersPage.vue'
 import ProductsPage from '@/pages/products/ui/ProductsPage.vue'
 import SuppliersPage from '@/pages/suppliers/ui/SuppliersPage.vue'
+import SalesPage from '@/pages/sales/ui/SalesPage.vue'
 import NotFoundPage from '@/pages/not-found/ui/NotFoundPage.vue'
 import { requireAuth } from './guards'
 
@@ -13,5 +14,6 @@ export const routes: RouteRecordRaw[] = [
   { path: '/customers', component: CustomersPage, beforeEnter: requireAuth },
   { path: '/products', component: ProductsPage, beforeEnter: requireAuth },
   { path: '/suppliers', component: SuppliersPage, beforeEnter: requireAuth },
+  { path: '/sales', component: SalesPage, beforeEnter: requireAuth },
   { path: '/:pathMatch(.*)*', component: NotFoundPage },
 ]

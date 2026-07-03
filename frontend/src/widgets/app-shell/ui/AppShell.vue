@@ -6,6 +6,7 @@
       <RouterLink to="/customers">Clientes</RouterLink>
       <RouterLink to="/products">Produtos</RouterLink>
       <RouterLink to="/suppliers">Fornecedores</RouterLink>
+      <RouterLink to="/sales">Vendas</RouterLink>
     </aside>
     <div class="main">
       <header class="topbar">
