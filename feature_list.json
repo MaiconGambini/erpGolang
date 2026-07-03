@@ -1,0 +1,18 @@
+{
+  "features": [
+    { "id": "phase-0", "name": "Phase 0 — Frozen decisions", "status": "passing" },
+    { "id": "phase-1", "name": "Phase 1 — Monorepo setup", "status": "passing" },
+    { "id": "phase-2", "name": "Phase 2 — Backend skeleton", "status": "passing" },
+    { "id": "phase-3", "name": "Phase 3 — Backend foundation", "status": "passing" },
+    { "id": "phase-4", "name": "Phase 4 — Schema + auth/users/tenants", "status": "passing" },
+    { "id": "phase-5", "name": "Phase 5 — Frontend FSD skeleton", "status": "passing" },
+    { "id": "phase-6", "name": "Phase 6 — Frontend auth", "status": "passing" },
+    { "id": "phase-7", "name": "Phase 7 — Customers E2E", "status": "passing" },
+    { "id": "phase-8", "name": "Phase 8 — Tests", "status": "passing" },
+    { "id": "phase-9", "name": "Phase 9 — Observability", "status": "passing" },
+    { "id": "phase-10", "name": "Phase 10 — Deploy", "status": "passing" },
+    { "id": "post-mvp-products", "name": "Post-MVP — Products module", "status": "passing" },
+    { "id": "post-mvp-suppliers", "name": "Post-MVP — Suppliers module", "status": "passing" },
+    { "id": "post-mvp-sales", "name": "Post-MVP — Sales module", "status": "passing" }
+  ]
+}
