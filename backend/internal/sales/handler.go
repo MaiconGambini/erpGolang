@@ -5,9 +5,12 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/MaiconGambini/erpGolang/backend/internal/shared/authctx"
+	"github.com/MaiconGambini/erpGolang/backend/internal/shared/export"
 	"github.com/MaiconGambini/erpGolang/backend/internal/shared/httpx"
+	"github.com/MaiconGambini/erpGolang/backend/internal/shared/querytime"
 	"github.com/MaiconGambini/erpGolang/backend/internal/shared/tenantctx"
 	"github.com/go-chi/chi/v5"
 )
@@ -28,10 +31,29 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		limit = 20
 	}
 	offset, _ := strconv.Atoi(q.Get("offset"))
+	from, to := parseOptionalDates(q.Get("from"), q.Get("to"))
+	if q.Get("format") == "csv" {
+		items, _, err := h.svc.List(r.Context(), ListParams{
+			TenantID: tenantID, Search: q.Get("search"), Status: ParseStatusQuery(q.Get("status")),
+			FromDate: from, ToDate: to, Limit: 10000, Offset: 0,
+		})
+		if err != nil {
+			httpx.Error(w, "INTERNAL_ERROR", "failed to export sales", http.StatusInternalServerError)
+			return
+		}
+		rows := make([][]string, 0, len(items))
+		for _, s := range items {
+			rows = append(rows, []string{s.CustomerName, s.Status, s.Total, s.CreatedAt})
+		}
+		_ = export.WriteCSV(w, "vendas.csv", []string{"cliente", "status", "total", "criado_em"}, rows)
+		return
+	}
 	items, total, err := h.svc.List(r.Context(), ListParams{
 		TenantID: tenantID,
 		Search:   q.Get("search"),
 		Status:   ParseStatusQuery(q.Get("status")),
+		FromDate: from,
+		ToDate:   to,
 		Limit:    limit,
 		Offset:   offset,
 	})
@@ -157,4 +179,21 @@ func writeServiceError(w http.ResponseWriter, err error, fallback string) {
 	default:
 		httpx.Error(w, "INTERNAL_ERROR", fallback, http.StatusInternalServerError)
 	}
+}
+
+func parseOptionalDates(fromStr, toStr string) (*time.Time, *time.Time) {
+	var from, to *time.Time
+	if fromStr != "" {
+		if t := querytime.ParseOptional(fromStr); t.Valid {
+			v := t.Time
+			from = &v
+		}
+	}
+	if toStr != "" {
+		if t := querytime.ParseOptional(toStr); t.Valid {
+			v := t.Time
+			to = &v
+		}
+	}
+	return from, to
 }

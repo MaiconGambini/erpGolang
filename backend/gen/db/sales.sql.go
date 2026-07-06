@@ -18,16 +18,26 @@ JOIN customers c ON c.id = s.customer_id AND c.tenant_id = s.tenant_id AND c.del
 WHERE s.tenant_id = $1 AND s.deleted_at IS NULL
   AND ($2::text = '' OR c.name ILIKE '%' || $2 || '%')
   AND ($3::text IS NULL OR s.status = $3)
+  AND ($4::timestamptz IS NULL OR s.created_at >= $4)
+  AND ($5::timestamptz IS NULL OR s.created_at < $5)
 `
 
 type CountSalesParams struct {
-	TenantID pgtype.UUID `json:"tenant_id"`
-	Search   string      `json:"search"`
-	Status   pgtype.Text `json:"status"`
+	TenantID pgtype.UUID        `json:"tenant_id"`
+	Search   string             `json:"search"`
+	Status   pgtype.Text        `json:"status"`
+	FromDate pgtype.Timestamptz `json:"from_date"`
+	ToDate   pgtype.Timestamptz `json:"to_date"`
 }
 
 func (q *Queries) CountSales(ctx context.Context, arg CountSalesParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countSales, arg.TenantID, arg.Search, arg.Status)
+	row := q.db.QueryRow(ctx, countSales,
+		arg.TenantID,
+		arg.Search,
+		arg.Status,
+		arg.FromDate,
+		arg.ToDate,
+	)
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
@@ -292,16 +302,20 @@ JOIN customers c ON c.id = s.customer_id AND c.tenant_id = s.tenant_id AND c.del
 WHERE s.tenant_id = $1 AND s.deleted_at IS NULL
   AND ($2::text = '' OR c.name ILIKE '%' || $2 || '%')
   AND ($3::text IS NULL OR s.status = $3)
+  AND ($4::timestamptz IS NULL OR s.created_at >= $4)
+  AND ($5::timestamptz IS NULL OR s.created_at < $5)
 ORDER BY s.created_at DESC
-LIMIT $5 OFFSET $4
+LIMIT $7 OFFSET $6
 `
 
 type ListSalesParams struct {
-	TenantID    pgtype.UUID `json:"tenant_id"`
-	Search      string      `json:"search"`
-	Status      pgtype.Text `json:"status"`
-	OffsetCount int32       `json:"offset_count"`
-	LimitCount  int32       `json:"limit_count"`
+	TenantID    pgtype.UUID        `json:"tenant_id"`
+	Search      string             `json:"search"`
+	Status      pgtype.Text        `json:"status"`
+	FromDate    pgtype.Timestamptz `json:"from_date"`
+	ToDate      pgtype.Timestamptz `json:"to_date"`
+	OffsetCount int32              `json:"offset_count"`
+	LimitCount  int32              `json:"limit_count"`
 }
 
 type ListSalesRow struct {
@@ -322,6 +336,8 @@ func (q *Queries) ListSales(ctx context.Context, arg ListSalesParams) ([]ListSal
 		arg.TenantID,
 		arg.Search,
 		arg.Status,
+		arg.FromDate,
+		arg.ToDate,
 		arg.OffsetCount,
 		arg.LimitCount,
 	)

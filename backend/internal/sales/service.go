@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"time"
 
 	"github.com/MaiconGambini/erpGolang/backend/gen/db"
 	sharedaudit "github.com/MaiconGambini/erpGolang/backend/internal/shared/audit"
@@ -51,6 +52,8 @@ type ListParams struct {
 	TenantID string
 	Search   string
 	Status   *string
+	FromDate *time.Time
+	ToDate   *time.Time
 	Limit    int
 	Offset   int
 }
@@ -84,6 +87,8 @@ func (s *Service) List(ctx context.Context, p ListParams) ([]SaleDTO, int64, err
 		TenantID:    pgTenant,
 		Search:      p.Search,
 		Status:      textFromPtr(p.Status),
+		FromDate:    timestamptzFromPtr(p.FromDate),
+		ToDate:      timestamptzFromPtr(p.ToDate),
 		LimitCount:  int32(p.Limit),
 		OffsetCount: int32(p.Offset),
 	})
@@ -94,6 +99,8 @@ func (s *Service) List(ctx context.Context, p ListParams) ([]SaleDTO, int64, err
 		TenantID: pgTenant,
 		Search:   p.Search,
 		Status:   textFromPtr(p.Status),
+		FromDate: timestamptzFromPtr(p.FromDate),
+		ToDate:   timestamptzFromPtr(p.ToDate),
 	})
 	if err != nil {
 		return nil, 0, err
@@ -547,6 +554,13 @@ func textFromPtr(s *string) pgtype.Text {
 		return pgtype.Text{}
 	}
 	return pgtype.Text{String: *s, Valid: true}
+}
+
+func timestamptzFromPtr(t *time.Time) pgtype.Timestamptz {
+	if t == nil {
+		return pgtype.Timestamptz{}
+	}
+	return pgutil.Timestamptz(*t)
 }
 
 func ParseStatusQuery(v string) *string {

@@ -19,6 +19,7 @@ import (
 	"github.com/MaiconGambini/erpGolang/backend/internal/platform/database"
 	"github.com/MaiconGambini/erpGolang/backend/internal/platform/logger"
 	"github.com/MaiconGambini/erpGolang/backend/internal/products"
+	"github.com/MaiconGambini/erpGolang/backend/internal/reports"
 	"github.com/MaiconGambini/erpGolang/backend/internal/sales"
 	"github.com/MaiconGambini/erpGolang/backend/internal/suppliers"
 	redisplatform "github.com/MaiconGambini/erpGolang/backend/internal/platform/redis"
@@ -66,6 +67,7 @@ func main() {
 			suppliers.NewModule(),
 			sales.NewModule(),
 			audit.NewModule(),
+			reports.NewModule(),
 		},
 	}
 

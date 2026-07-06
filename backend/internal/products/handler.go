@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/MaiconGambini/erpGolang/backend/internal/shared/authctx"
+	"github.com/MaiconGambini/erpGolang/backend/internal/shared/export"
 	"github.com/MaiconGambini/erpGolang/backend/internal/shared/httpx"
 	"github.com/MaiconGambini/erpGolang/backend/internal/shared/inventory"
 	"github.com/MaiconGambini/erpGolang/backend/internal/shared/tenantctx"
@@ -29,6 +30,26 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		limit = 20
 	}
 	offset, _ := strconv.Atoi(q.Get("offset"))
+	if q.Get("format") == "csv" {
+		items, _, err := h.svc.List(r.Context(), ListParams{
+			TenantID: tenantID, Search: q.Get("search"), Active: ParseBoolQuery(q.Get("active")),
+			Limit: 10000, Offset: 0,
+		})
+		if err != nil {
+			httpx.Error(w, "INTERNAL_ERROR", "failed to export products", http.StatusInternalServerError)
+			return
+		}
+		rows := make([][]string, 0, len(items))
+		for _, p := range items {
+			active := "false"
+			if p.Active {
+				active = "true"
+			}
+			rows = append(rows, []string{p.Name, p.Sku, p.Price, strconv.Itoa(p.Stock), active})
+		}
+		_ = export.WriteCSV(w, "produtos.csv", []string{"nome", "sku", "preco", "estoque", "ativo"}, rows)
+		return
+	}
 	items, total, err := h.svc.List(r.Context(), ListParams{
 		TenantID: tenantID,
 		Search:   q.Get("search"),

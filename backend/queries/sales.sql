@@ -6,6 +6,8 @@ JOIN customers c ON c.id = s.customer_id AND c.tenant_id = s.tenant_id AND c.del
 WHERE s.tenant_id = @tenant_id AND s.deleted_at IS NULL
   AND (@search::text = '' OR c.name ILIKE '%' || @search || '%')
   AND (sqlc.narg('status')::text IS NULL OR s.status = sqlc.narg('status'))
+  AND (sqlc.narg('from_date')::timestamptz IS NULL OR s.created_at >= sqlc.narg('from_date'))
+  AND (sqlc.narg('to_date')::timestamptz IS NULL OR s.created_at < sqlc.narg('to_date'))
 ORDER BY s.created_at DESC
 LIMIT @limit_count OFFSET @offset_count;
 
@@ -15,7 +17,9 @@ FROM sales s
 JOIN customers c ON c.id = s.customer_id AND c.tenant_id = s.tenant_id AND c.deleted_at IS NULL
 WHERE s.tenant_id = @tenant_id AND s.deleted_at IS NULL
   AND (@search::text = '' OR c.name ILIKE '%' || @search || '%')
-  AND (sqlc.narg('status')::text IS NULL OR s.status = sqlc.narg('status'));
+  AND (sqlc.narg('status')::text IS NULL OR s.status = sqlc.narg('status'))
+  AND (sqlc.narg('from_date')::timestamptz IS NULL OR s.created_at >= sqlc.narg('from_date'))
+  AND (sqlc.narg('to_date')::timestamptz IS NULL OR s.created_at < sqlc.narg('to_date'));
 
 -- name: GetSale :one
 SELECT s.id, s.tenant_id, s.customer_id, c.name AS customer_name, s.status, s.total, s.notes,

@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/MaiconGambini/erpGolang/backend/internal/shared/authctx"
+	"github.com/MaiconGambini/erpGolang/backend/internal/shared/export"
 	"github.com/MaiconGambini/erpGolang/backend/internal/shared/httpx"
 	"github.com/MaiconGambini/erpGolang/backend/internal/shared/tenantctx"
 	"github.com/go-chi/chi/v5"
@@ -28,6 +29,39 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		limit = 20
 	}
 	offset, _ := strconv.Atoi(q.Get("offset"))
+	if q.Get("format") == "csv" {
+		items, _, err := h.svc.List(r.Context(), ListParams{
+			TenantID: tenantID,
+			Search:   q.Get("search"),
+			Active:   ParseBoolQuery(q.Get("active")),
+			Limit:    10000,
+			Offset:   0,
+		})
+		if err != nil {
+			httpx.Error(w, "INTERNAL_ERROR", "failed to export customers", http.StatusInternalServerError)
+			return
+		}
+		rows := make([][]string, 0, len(items))
+		for _, c := range items {
+			doc, email, phone := "", "", ""
+			if c.Document != nil {
+				doc = *c.Document
+			}
+			if c.Email != nil {
+				email = *c.Email
+			}
+			if c.Phone != nil {
+				phone = *c.Phone
+			}
+			active := "false"
+			if c.Active {
+				active = "true"
+			}
+			rows = append(rows, []string{c.Name, doc, email, phone, active})
+		}
+		_ = export.WriteCSV(w, "clientes.csv", []string{"nome", "documento", "email", "telefone", "ativo"}, rows)
+		return
+	}
 	items, total, err := h.svc.List(r.Context(), ListParams{
 		TenantID: tenantID,
 		Search:   q.Get("search"),
