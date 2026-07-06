@@ -16,6 +16,7 @@ import (
 	"github.com/MaiconGambini/erpGolang/backend/internal/config"
 	"github.com/MaiconGambini/erpGolang/backend/internal/customers"
 	"github.com/MaiconGambini/erpGolang/backend/internal/platform/database"
+	"github.com/MaiconGambini/erpGolang/backend/internal/platform/logger"
 	"github.com/MaiconGambini/erpGolang/backend/internal/platform/validation"
 	redisplatform "github.com/MaiconGambini/erpGolang/backend/internal/platform/redis"
 	"github.com/MaiconGambini/erpGolang/backend/internal/tenants"
@@ -50,6 +51,7 @@ func TestCrossTenantCustomerReturnsNotFound(t *testing.T) {
 		Redis:     redisClient,
 		Validator: validation.New(),
 		Audit:     audit.NewService(db),
+		Logger:    logger.New("test"),
 		Modules: []app.Module{
 			auth.NewModule(),
 			users.NewModule(),
@@ -97,6 +99,82 @@ func TestCrossTenantCustomerReturnsNotFound(t *testing.T) {
 	defer getRes.Body.Close()
 	if getRes.StatusCode != http.StatusNotFound {
 		t.Fatalf("cross-tenant get: expected 404, got %d", getRes.StatusCode)
+	}
+}
+
+func TestViewerCannotDeleteCustomer(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test")
+	}
+
+	cfg := config.Load()
+	ctx := context.Background()
+	db, err := database.Open(ctx, cfg.DatabaseURL)
+	if err != nil {
+		t.Skipf("database unavailable: %v", err)
+	}
+	defer db.Close()
+
+	redisClient, err := redisplatform.Open(ctx, cfg.RedisURL)
+	if err != nil {
+		t.Skipf("redis unavailable: %v", err)
+	}
+	defer redisClient.Close()
+
+	deps := app.Dependencies{
+		Config:    cfg,
+		DB:        db,
+		Redis:     redisClient,
+		Validator: validation.New(),
+		Audit:     audit.NewService(db),
+		Logger:    logger.New("test"),
+		Modules: []app.Module{
+			auth.NewModule(),
+			users.NewModule(),
+			tenants.NewModule(),
+			customers.NewModule(),
+			audit.NewModule(),
+		},
+	}
+
+	handler := app.NewRouter(deps)
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	adminToken := login(t, server.URL, "acme", "admin@acme.com", "admin123")
+	viewerToken := login(t, server.URL, "acme", "viewer@acme.com", "admin123")
+
+	body := `{"name":"RBAC Viewer Test","active":true}`
+	req, _ := http.NewRequest(http.MethodPost, server.URL+"/api/v1/customers", bytes.NewBufferString(body))
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	req.Header.Set("Content-Type", "application/json")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("create: expected 201, got %d", res.StatusCode)
+	}
+
+	var created struct {
+		Data struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&created); err != nil {
+		t.Fatal(err)
+	}
+
+	delReq, _ := http.NewRequest(http.MethodDelete, server.URL+"/api/v1/customers/"+created.Data.ID, nil)
+	delReq.Header.Set("Authorization", "Bearer "+viewerToken)
+	delRes, err := http.DefaultClient.Do(delReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer delRes.Body.Close()
+	if delRes.StatusCode != http.StatusForbidden {
+		t.Fatalf("viewer delete: expected 403, got %d", delRes.StatusCode)
 	}
 }
 

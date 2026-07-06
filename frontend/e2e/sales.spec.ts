@@ -41,6 +41,8 @@ test.describe('sales', () => {
     await page.getByRole('button', { name: 'Novo cliente' }).click()
     await page.getByLabel('Nome *').fill(customerName)
     await page.getByRole('button', { name: 'Salvar' }).click()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await page.getByPlaceholder('Buscar por nome, documento ou e-mail').fill(customerName)
     await expect(page.getByRole('cell', { name: customerName })).toBeVisible()
 
     const sku = `SALE-SKU-${Date.now()}`
@@ -77,6 +79,9 @@ test.describe('sales tenant isolation', () => {
     await acmePage.getByRole('button', { name: 'Novo cliente' }).click()
     await acmePage.getByLabel('Nome *').fill(customerName)
     await acmePage.getByRole('button', { name: 'Salvar' }).click()
+    await expect(acmePage.getByRole('dialog')).toHaveCount(0)
+    await acmePage.getByPlaceholder('Buscar por nome, documento ou e-mail').fill(customerName)
+    await expect(acmePage.getByRole('cell', { name: customerName })).toBeVisible()
 
     const sku = `ISO-${Date.now()}`
     await acmePage.goto('/products')

@@ -17,6 +17,7 @@ import (
 	"github.com/MaiconGambini/erpGolang/backend/internal/customers"
 	"github.com/MaiconGambini/erpGolang/backend/internal/dashboard"
 	"github.com/MaiconGambini/erpGolang/backend/internal/platform/database"
+	"github.com/MaiconGambini/erpGolang/backend/internal/platform/logger"
 	"github.com/MaiconGambini/erpGolang/backend/internal/platform/validation"
 	redisplatform "github.com/MaiconGambini/erpGolang/backend/internal/platform/redis"
 	"github.com/MaiconGambini/erpGolang/backend/internal/tenants"
@@ -48,6 +49,7 @@ func TestDashboardSummaryTenantScoped(t *testing.T) {
 		Redis:     redisClient,
 		Validator: validation.New(),
 		Audit:     audit.NewService(db),
+		Logger:    logger.New("test"),
 		Modules: []app.Module{
 			auth.NewModule(),
 			users.NewModule(),

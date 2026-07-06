@@ -32,12 +32,20 @@ test.describe('dashboard', () => {
     expect(revenueText).toMatch(/^R\$\s/)
   })
 
+  test('shows chart sections after login', async ({ page }) => {
+    await login(page, acme)
+
+    await expect(page.getByRole('heading', { name: 'Vendas por dia' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Produtos mais vendidos' })).toBeVisible()
+    await expect(page.locator('section.charts canvas')).toHaveCount(2, { timeout: 15_000 })
+  })
+
   test('active customers increments after create', async ({ page }) => {
     await login(page, acme)
 
-    const activeCustomers = page.locator('section.grid article').first().locator('strong:not(.skeleton)')
-    const beforeText = await activeCustomers.textContent()
-    const before = Number((beforeText ?? '0').replace(/\./g, ''))
+    const kpi = () => page.locator('section.grid article').first().locator('strong:not(.skeleton)')
+    await expect(kpi()).toHaveText(/\d/, { timeout: 10_000 })
+    const before = Number((await kpi().textContent() ?? '0').replace(/\./g, ''))
 
     await page.goto('/customers')
     await expect(page.getByRole('heading', { name: 'Clientes' })).toBeVisible()
@@ -46,13 +54,14 @@ test.describe('dashboard', () => {
     await page.getByRole('button', { name: 'Novo cliente' }).click()
     await page.getByLabel('Nome *').fill(name)
     await page.getByRole('button', { name: 'Salvar' }).click()
-    await expect(page.getByText(name)).toBeVisible()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await page.getByPlaceholder('Buscar por nome, documento ou e-mail').fill(name)
+    await expect(page.getByRole('cell', { name })).toBeVisible()
 
     await page.goto('/')
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
-
-    const afterText = await activeCustomers.textContent()
-    const after = Number((afterText ?? '0').replace(/\./g, ''))
+    await expect(kpi()).toHaveText(/\d/, { timeout: 10_000 })
+    const after = Number((await kpi().textContent() ?? '0').replace(/\./g, ''))
     expect(after).toBeGreaterThanOrEqual(before + 1)
   })
 })

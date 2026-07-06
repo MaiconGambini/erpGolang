@@ -41,7 +41,9 @@ test.describe('customers', () => {
     await page.getByRole('button', { name: 'Novo cliente' }).click()
     await page.getByLabel('Nome *').fill(name)
     await page.getByRole('button', { name: 'Salvar' }).click()
-    await expect(page.getByText(name)).toBeVisible()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await page.getByPlaceholder('Buscar por nome, documento ou e-mail').fill(name)
+    await expect(page.getByRole('cell', { name })).toBeVisible()
   })
 
   test('edit customer updates list', async ({ page }) => {
@@ -49,7 +51,9 @@ test.describe('customers', () => {
     await page.getByRole('button', { name: 'Novo cliente' }).click()
     await page.getByLabel('Nome *').fill(name)
     await page.getByRole('button', { name: 'Salvar' }).click()
-    await expect(page.getByText(name)).toBeVisible()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await page.getByPlaceholder('Buscar por nome, documento ou e-mail').fill(name)
+    await expect(page.getByRole('cell', { name })).toBeVisible()
 
     await page.getByRole('button', { name: 'Editar' }).first().click()
     const updated = `${name} Updated`
@@ -72,7 +76,9 @@ test.describe('tenant isolation', () => {
     await acmePage.getByRole('button', { name: 'Novo cliente' }).click()
     await acmePage.getByLabel('Nome *').fill(name)
     await acmePage.getByRole('button', { name: 'Salvar' }).click()
-    await expect(acmePage.getByText(name)).toBeVisible()
+    await expect(acmePage.getByRole('dialog')).toHaveCount(0)
+    await acmePage.getByPlaceholder('Buscar por nome, documento ou e-mail').fill(name)
+    await expect(acmePage.getByRole('cell', { name })).toBeVisible()
 
     await login(betaPage, beta)
     await betaPage.goto('/customers')
