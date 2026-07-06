@@ -9,7 +9,7 @@
 
 ## Permission Matrix
 
-MVP note: routes enforce authentication only (`requireAuth`). Role checks are deferred; the matrix documents target behavior.
+Routes enforce `RequireRole` middleware on the API and role helpers in the Vue UI (`shared/lib/roles.ts`).
 
 | Capability | Admin | Manager | Operator | Viewer |
 |---|---:|---:|---:|---:|
@@ -29,5 +29,7 @@ MVP note: routes enforce authentication only (`requireAuth`). Role checks are de
 | Cancel sales | Yes | Yes | No | No |
 | Delete draft sales | Yes | Yes | No | No |
 | Manage users | Yes | No | No | No |
-| View financial data | Yes | Yes | No | No |
+| View audit log | Yes | No | No | No |
+| View financial data (revenue charts, period PDF, aggregate KPIs) | Yes | Yes | No | No |
+| Export sale PDF (single order) | Yes | Yes | Yes | Yes |
 | Change tenant settings | Yes | No | No | No |

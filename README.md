@@ -1,41 +1,75 @@
 # goERP
 
-Modular, tenant-aware ERP monorepo for small and medium businesses — built with Go, Vue 3, PostgreSQL, and Redis.
+[![Backend CI](https://github.com/MaiconGambini/erpGolang/actions/workflows/backend.yml/badge.svg)](https://github.com/MaiconGambini/erpGolang/actions/workflows/backend.yml)
+[![Frontend CI](https://github.com/MaiconGambini/erpGolang/actions/workflows/frontend.yml/badge.svg)](https://github.com/MaiconGambini/erpGolang/actions/workflows/frontend.yml)
+[![E2E](https://github.com/MaiconGambini/erpGolang/actions/workflows/e2e.yml/badge.svg)](https://github.com/MaiconGambini/erpGolang/actions/workflows/e2e.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Inspired by learning-oriented READMEs like [person-crud](https://github.com/KozielGPC/person-crud), this document starts with **what the project teaches**, then describes **how the system works**.
+**Multi-tenant ERP core modules** for small businesses — Go + Vue 3 + PostgreSQL.  
+Auth, catalog CRUD, sales with stock control, RBAC, CSV/PDF reports, and dashboard charts.  
+*Not fiscal invoicing (NF-e) or full finance — see [scope](#scope).*
 
 ---
+
+## Screenshots
+
+| Login | Dashboard (KPIs + charts) |
+|-------|---------------------------|
+| ![Login](docs/images/login.svg) | ![Dashboard](docs/images/dashboard.svg) |
+
+| Sales workflow | Customer form (BR fields) |
+|----------------|---------------------------|
+| ![Sales](docs/images/sales.svg) | ![Customer form](docs/images/customer-form.svg) |
+
+---
+
+## For reviewers (2 minutes)
+
+1. `docker compose -f docker-compose.dev.yml up -d`
+2. `cd backend && go run ./cmd/migrate && go run ./cmd/seed`
+3. `go run ./cmd/api` and `cd frontend && npm run dev`
+4. Login: tenant `acme`, `admin@acme.com`, `admin123`
+5. Try: create customer → product → draft sale → confirm → dashboard KPIs update
+
+Viewer demo: `viewer@acme.com` / `admin123` (read-only, no delete).
+
+---
+
+## Scope
+
+**In scope:** multi-tenant isolation, JWT auth, customers/products/suppliers/sales CRUD, sales confirm/cancel + stock, dashboard KPIs + charts, CSV export, PDF reports, RBAC, users admin, audit log viewer.
+
+**Out of scope:** NF-e, payments/AP/AR, purchase orders, stock ledger, live hosted demo.
+
+---
+
+Inspired by learning-oriented READMEs like [person-crud](https://github.com/KozielGPC/person-crud), the sections below describe **what the project teaches** and **how the system works**.
 
 ## What I Learned Building This Project
 
 ### Backend (Go)
 
-- **Modular monolith composition** — registering domain modules (`auth`, `customers`, `products`, `suppliers`, `sales`, `dashboard`) behind a single `app.Module` interface and chi router.
+- **Modular monolith composition** — registering domain modules behind a single `app.Module` interface and chi router.
 - **Multi-tenant isolation** — every tenant-owned table has `tenant_id`; JWT claims feed `tenantctx`; cross-tenant access returns `404` (not `403`).
+- **RBAC middleware** — `RequireRole` enforces `docs/ROLES.md` matrix on routes; viewer is read-only.
 - **Typed SQL with sqlc** — queries live in `.sql` files; generated Go code removes stringly-typed SQL in handlers.
-- **Schema migrations with Atlas** — declarative `schema.sql` + versioned migrations; migrate job runs before app boot in production.
-- **Auth with JWT + refresh rotation** — short-lived access token in memory; refresh token as HttpOnly cookie; SHA-256 hash stored in Postgres; session revoked on rotation.
 - **Transactional workflows** — sales `confirm` / `cancel` use `pgx` transactions to update status and product stock atomically.
-- **Read-model aggregates** — dashboard KPIs as a single tenant-scoped SQL query instead of N+1 API calls.
-- **Structured logging** — `slog` JSON logs with `request_id`, `tenant_id`, `user_id`, latency.
-- **Rate limiting** — Redis counter on login (5 / 15 min per IP); fail-open when Redis is down.
-- **Audit trail** — append-only `audit_logs` on business writes via injected `audit.Recorder`.
-- **Testing layers** — handler tests, integration tests with `//go:build integration`, golangci-lint in CI.
+- **Reporting read-model** — dashboard KPIs, sales-by-day, top products, CSV export, PDF via gofpdf.
+- **Audit trail** — append-only `audit_logs` on business writes; admin audit log viewer.
 
 ### Frontend (Vue 3)
 
-- **Feature-Sliced Design (FSD)** — `entities` → `features` → `widgets` → `pages`; imports flow downward only.
+- **Feature-Sliced Design (FSD)** — `entities` → `features` → `widgets` → `pages`.
 - **TanStack Vue Query** — server state, cache invalidation, dashboard refresh after mutations.
-- **Pinia session store** — access token in memory; axios interceptor with single-flight refresh on `401`.
-- **PrimeVue + Tailwind** — CRUD tables, dialogs, forms with consistent UX patterns.
-- **E2E with Playwright** — auth, customers, products, suppliers, sales, dashboard KPI smoke tests.
+- **Role-aware UI** — hide create/edit/delete for viewer; admin-only users and audit routes.
+- **Chart.js dashboard** — date range picker, sales line chart, top products bar chart.
+- **E2E with Playwright** — auth, CRUD, sales, dashboard KPIs, charts, export, viewer smoke.
 
 ### DevOps & Reliability
 
 - **Docker Compose** — local Postgres + Redis; production full stack with Caddy TLS.
-- **CI pipelines** — backend lint/test/integration, frontend typecheck/unit/build, Playwright E2E.
-- **CD to Fly.io** — deploy gated on green Backend CI (`workflow_run`).
-- **Two deploy profiles** — VPS full stack (default) vs Fly API split (see `docs/CI_CD.md`).
+- **CI pipelines** — backend lint/test/integration + coverage, frontend typecheck/unit/build, Playwright E2E.
+- **CD to Fly.io** — deploy gated on green Backend CI.
 
 ### Architecture Patterns
 
@@ -43,14 +77,14 @@ Inspired by learning-oriented READMEs like [person-crud](https://github.com/Kozi
 |---|---|
 | Entity CRUD | `customers`, `products`, `suppliers` |
 | Workflow + transactions | `sales` (draft → confirm → cancel) |
-| Read-model aggregate | `dashboard` (KPI summary) |
-| Shared invariants | low-stock threshold in Go + TypeScript |
+| Read-model aggregate | `dashboard`, `reports` |
+| RBAC guards | middleware + router `requireAdmin` |
 
 ---
 
 ## The System
 
-goERP MVP 1 delivers authentication, tenant isolation, catalog CRUD, sales with stock effects, and a live dashboard.
+goERP delivers authentication, tenant isolation, catalog CRUD, sales with stock effects, RBAC, reporting, and a live dashboard.
 
 ```text
 Browser
@@ -70,16 +104,18 @@ Browser
 | `customers` | Reference CRUD module |
 | `products` | Catalog, stock, low-stock list |
 | `suppliers` | Supplier CRUD |
-| `sales` | Draft sales, confirm (stock −), cancel (stock +) |
-| `dashboard` | KPI aggregate (`active_customers`, `new_customers_30d`, `draft_sales`, `low_stock_alerts`) |
-| `audit` | Write-side event log (no HTTP routes) |
-| `users` | Registered; CRUD routes deferred |
+| `sales` | Draft sales, confirm (stock −), cancel (stock +), sale PDF |
+| `dashboard` | KPI aggregate (6 metrics) |
+| `reports` | Sales-by-day, top products, sales summary PDF |
+| `users` | List/get/update users (admin) |
+| `audit` | Write-side recorder + admin audit log list |
 
 ### API Conventions
 
 - Single resource: `{ data: T }`
 - Paginated list: `{ data: T[], pagination }`
 - Error: `{ error: { code, message, details? } }`
+- CSV export: `?format=csv` on list endpoints
 - Tenant scope from JWT — never from request body
 
 ### Frontend Routes
@@ -87,11 +123,19 @@ Browser
 | Route | Screen |
 |---|---|
 | `/login` | Tenant slug + email + password |
-| `/` | Dashboard KPIs |
-| `/customers` | Customer CRUD |
-| `/products` | Product CRUD |
-| `/suppliers` | Supplier CRUD |
-| `/sales` | Sales list, confirm, cancel |
+| `/` | Dashboard KPIs + charts + PDF export |
+| `/customers` | Customer CRUD + CSV export |
+| `/products` | Product CRUD + CSV export |
+| `/suppliers` | Supplier CRUD + CSV export |
+| `/sales` | Sales list, confirm, cancel, CSV + date filter |
+| `/users` | User admin (admin only) |
+| `/audit` | Audit log viewer (admin only) |
+
+### Reporting
+
+- **CSV** — customers, products, suppliers, sales (`?format=csv`; sales supports `from`/`to`)
+- **PDF** — sale detail (`GET /sales/{id}/pdf`), period summary (`GET /reports/sales-summary.pdf`)
+- **Charts** — sales by day, top products (dashboard date range)
 
 ### Auth Flow
 
@@ -106,7 +150,7 @@ PostgreSQL tables: `tenants`, `users`, `auth_sessions`, `customers`, `products`,
 
 Sales lifecycle: `draft` → `confirmed` → `cancelled`. Stock changes only on confirm/cancel.
 
-Seed tenants: `acme` / `beta` — password `admin123` (`go run ./cmd/seed`).
+Seed: `acme` / `beta` — `admin@*.com` / `admin123`; viewer: `viewer@acme.com` / `admin123`.
 
 ---
 
@@ -120,7 +164,7 @@ Seed tenants: `acme` / `beta` — password `admin123` (`go run ./cmd/seed`).
 
 ### Local run (5 steps)
 
-`docker-compose.dev.yml` publishes **Postgres on host port `5434`** and **Redis on `6381`** (avoids conflicts with `5432`/`6379` or `goerp-prod`). Full backend runbook: [`backend/docs/LOCAL_DEV.md`](backend/docs/LOCAL_DEV.md).
+`docker-compose.dev.yml` publishes **Postgres on host port `5434`** and **Redis on `6381`**. Full runbook: [`backend/docs/LOCAL_DEV.md`](backend/docs/LOCAL_DEV.md).
 
 **1. Environment**
 
@@ -129,30 +173,25 @@ cp backend/.env.example backend/.env
 # Set JWT_ACCESS_SECRET and JWT_REFRESH_SECRET (non-default values)
 ```
 
-Default connection strings in `.env.example` already target `5434` / `6381`. On Windows, prefer `127.0.0.1` over `localhost` in `DATABASE_URL` to avoid IPv6 hitting a different Postgres instance.
-
 **2. Infrastructure**
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d
 ```
 
-Verify compose file (read-only): `docker compose -f docker-compose.dev.yml config`
-
 **3. Database**
 
 ```bash
 cd backend
 go run ./cmd/migrate
-go run ./cmd/seed    # tenants acme/beta — password admin123
+go run ./cmd/seed
 ```
 
 **4. Backend**
 
 ```bash
 cd backend
-make dev          # hot reload via air
-# or: go run ./cmd/api
+go run ./cmd/api
 ```
 
 API: `http://localhost:8080` — health: `/healthz`, `/readyz`
@@ -165,20 +204,20 @@ npm install
 npm run dev
 ```
 
-App: `http://localhost:5173` (proxies `/api` → backend). Login: `acme` / `admin@acme.com` / `admin123`.
+App: `http://localhost:5173` (proxies `/api` → backend).
 
 ### Tests
 
 ```bash
 # Backend
 cd backend && go test ./...
-go test -tags=integration ./internal/customers/... ./internal/dashboard/...
+go test -tags=integration ./internal/customers/... ./internal/sales/... ./internal/reports/...
 
 # Frontend
 cd frontend && npm run typecheck && npm run test:unit
 
-# E2E (docker-compose.dev.yml up; Playwright starts API on :8080 and Vite on :5174)
-cd frontend && npx playwright test   # 15 tests; defaults DATABASE_URL :5434, REDIS_URL :6381
+# E2E (docker-compose.dev.yml up)
+cd frontend && npx playwright test
 
 # Full gate
 make validate
@@ -190,8 +229,8 @@ make validate
 
 | Layer | Technologies |
 |---|---|
-| Backend | Go 1.25+, chi, pgx, sqlc, Atlas, Redis, JWT, bcrypt, slog |
-| Frontend | Vite, Vue 3, TypeScript, Pinia, TanStack Vue Query, PrimeVue, Tailwind |
+| Backend | Go 1.25+, chi, pgx, sqlc, Atlas, Redis, JWT, bcrypt, slog, gofpdf |
+| Frontend | Vite, Vue 3, TypeScript, Pinia, TanStack Vue Query, PrimeVue, Tailwind, Chart.js |
 | Data | PostgreSQL 16, Redis 7 |
 | Deploy | Docker Compose + Caddy (VPS), Fly.io (API CD) |
 
@@ -202,10 +241,12 @@ make validate
 ```text
 backend/                 Go API, migrations, sqlc queries
 frontend/                Vue 3 FSD application
-docs/                    Product, architecture, UX, CI/CD
+docs/                    Product, architecture, UX, CI/CD, images/
 backend/docs/            Backend-specific runbooks
 deploy/                  Production compose + Caddy
 docker-compose.dev.yml   Local PostgreSQL and Redis
+LICENSE                  MIT
+SECURITY.md              Vulnerability reporting
 ```
 
 ---
@@ -217,15 +258,17 @@ docker-compose.dev.yml   Local PostgreSQL and Redis
 - [x] Modular monolith with `app.Module` registration
 - [x] Multi-tenant schema and middleware
 - [x] Auth: login, refresh rotation, logout, JWT
+- [x] RBAC per `docs/ROLES.md`
 - [x] Customers CRUD + audit + integration tests
 - [x] Products CRUD + low-stock endpoint
 - [x] Suppliers CRUD
 - [x] Sales workflow (confirm/cancel + stock transactions)
-- [x] Dashboard KPI aggregate
-- [x] Login rate limiting (Redis)
-- [x] Structured logging + health/readiness
-- [x] golangci-lint + integration tests in CI
-- [ ] Users CRUD (deferred)
+- [x] Dashboard KPI aggregate (6 KPIs)
+- [x] CSV export on list endpoints
+- [x] PDF reports (sale + summary)
+- [x] Users list/edit (admin)
+- [x] Audit log list (admin)
+- [x] Sales + reports integration tests in CI
 - [ ] OpenAPI contract (`contract/`)
 
 ### Frontend
@@ -233,19 +276,20 @@ docker-compose.dev.yml   Local PostgreSQL and Redis
 - [x] FSD structure with entity API clients
 - [x] Auth boot + axios refresh interceptor
 - [x] CRUD pages: customers, products, suppliers, sales
-- [x] Dashboard with live KPIs + cache invalidation
-- [x] Loading, empty, error states
-- [x] Playwright E2E suite (15 tests)
-- [x] Sale draft edit UI (`EditSaleDialog` + PATCH)
-- [ ] Drill-down links from dashboard metrics
+- [x] Dashboard with KPIs, charts, date range, drill-downs
+- [x] CSV export toolbar buttons
+- [x] PDF download (sale detail + dashboard summary)
+- [x] Users + audit admin pages
+- [x] Role-based UI (viewer read-only)
+- [x] Playwright E2E suite
 
 ### DevOps
 
 - [x] GitHub Actions: backend, frontend, E2E workflows
+- [x] Backend coverage profile in CI
 - [x] Fly deploy gated on Backend CI
 - [x] VPS production compose + Caddy
 - [ ] VPS deploy automation in CI
-- [ ] Backup/restore drill documented and tested
 
 ---
 
@@ -253,21 +297,18 @@ docker-compose.dev.yml   Local PostgreSQL and Redis
 
 | Doc | Purpose |
 |---|---|
+| [`docs/README.md`](docs/README.md) | Human-facing doc index |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | System shape and module boundaries |
-| [`DEPLOYMENT.md`](DEPLOYMENT.md) | VPS and production deploy |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Detailed subsystems and API envelope |
-| [`docs/CI_CD.md`](docs/CI_CD.md) | Workflows and deploy profiles |
-| [`docs/AI_CONTEXT.md`](docs/AI_CONTEXT.md) | Context for AI agents |
-| [`docs/BUSINESS_RULES.md`](docs/BUSINESS_RULES.md) | Domain invariants |
-| [`docs/MODULE_TEMPLATE.md`](docs/MODULE_TEMPLATE.md) | How to add a module |
+| [`docs/ROLES.md`](docs/ROLES.md) | RBAC matrix |
+| [`docs/PRODUCT.md`](docs/PRODUCT.md) | Product scope and journeys |
 | [`docs/UX_PATTERNS.md`](docs/UX_PATTERNS.md) | UI behavior patterns |
 | [`backend/docs/`](backend/docs/) | Auth, schema, tenant isolation, sales transactions |
+| [`SECURITY.md`](SECURITY.md) | Report security issues |
 
 ---
 
 ## Next Steps
 
-- Run full Playwright suite in CI locally
+- Reshoot README screenshots from running app (replace `docs/images/*.svg` placeholders)
 - Set `FLY_API_TOKEN` for live Fly deploy
 - Fix sales concurrent-confirm race (see `backend/docs/SALES_TRANSACTIONS.md`)
-- Add `agent-os/specs/` per module with acceptance criteria

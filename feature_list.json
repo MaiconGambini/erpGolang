@@ -14,6 +14,9 @@
     { "id": "post-mvp-products", "name": "Post-MVP — Products module", "status": "passing" },
     { "id": "post-mvp-suppliers", "name": "Post-MVP — Suppliers module", "status": "passing" },
     { "id": "post-mvp-sales", "name": "Post-MVP — Sales module", "status": "passing" },
-    { "id": "post-mvp-dashboard", "name": "Post-MVP — Dashboard KPIs", "status": "passing" }
+    { "id": "post-mvp-dashboard", "name": "Post-MVP — Dashboard KPIs", "status": "passing" },
+    { "id": "portfolio-rbac-users-audit", "name": "Portfolio — RBAC, users admin, audit viewer", "status": "passing" },
+    { "id": "portfolio-reporting", "name": "Portfolio — CSV/PDF reports + dashboard charts", "status": "passing" },
+    { "id": "portfolio-github-polish", "name": "Portfolio — LICENSE, badges, screenshots, SECURITY.md", "status": "passing" }
   ]
 }
