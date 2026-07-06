@@ -33,18 +33,24 @@ func (q *Queries) CountSuppliers(ctx context.Context, arg CountSuppliersParams) 
 }
 
 const createSupplier = `-- name: CreateSupplier :one
-INSERT INTO suppliers (tenant_id, name, document, email, phone, active)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, tenant_id, name, document, email, phone, active, deleted_at, created_at, updated_at
+INSERT INTO suppliers (tenant_id, name, document, document_type, email, phone, postal_code, street, street_number, city, state, active)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+RETURNING id, tenant_id, name, document, document_type, email, phone, postal_code, street, street_number, city, state, active, deleted_at, created_at, updated_at
 `
 
 type CreateSupplierParams struct {
-	TenantID pgtype.UUID `json:"tenant_id"`
-	Name     string      `json:"name"`
-	Document pgtype.Text `json:"document"`
-	Email    pgtype.Text `json:"email"`
-	Phone    pgtype.Text `json:"phone"`
-	Active   bool        `json:"active"`
+	TenantID     pgtype.UUID `json:"tenant_id"`
+	Name         string      `json:"name"`
+	Document     pgtype.Text `json:"document"`
+	DocumentType pgtype.Text `json:"document_type"`
+	Email        pgtype.Text `json:"email"`
+	Phone        pgtype.Text `json:"phone"`
+	PostalCode   pgtype.Text `json:"postal_code"`
+	Street       pgtype.Text `json:"street"`
+	StreetNumber pgtype.Text `json:"street_number"`
+	City         pgtype.Text `json:"city"`
+	State        pgtype.Text `json:"state"`
+	Active       bool        `json:"active"`
 }
 
 func (q *Queries) CreateSupplier(ctx context.Context, arg CreateSupplierParams) (Supplier, error) {
@@ -52,8 +58,14 @@ func (q *Queries) CreateSupplier(ctx context.Context, arg CreateSupplierParams) 
 		arg.TenantID,
 		arg.Name,
 		arg.Document,
+		arg.DocumentType,
 		arg.Email,
 		arg.Phone,
+		arg.PostalCode,
+		arg.Street,
+		arg.StreetNumber,
+		arg.City,
+		arg.State,
 		arg.Active,
 	)
 	var i Supplier
@@ -62,8 +74,14 @@ func (q *Queries) CreateSupplier(ctx context.Context, arg CreateSupplierParams) 
 		&i.TenantID,
 		&i.Name,
 		&i.Document,
+		&i.DocumentType,
 		&i.Email,
 		&i.Phone,
+		&i.PostalCode,
+		&i.Street,
+		&i.StreetNumber,
+		&i.City,
+		&i.State,
 		&i.Active,
 		&i.DeletedAt,
 		&i.CreatedAt,
@@ -73,7 +91,7 @@ func (q *Queries) CreateSupplier(ctx context.Context, arg CreateSupplierParams) 
 }
 
 const getSupplier = `-- name: GetSupplier :one
-SELECT id, tenant_id, name, document, email, phone, active, deleted_at, created_at, updated_at
+SELECT id, tenant_id, name, document, document_type, email, phone, postal_code, street, street_number, city, state, active, deleted_at, created_at, updated_at
 FROM suppliers
 WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 `
@@ -91,8 +109,14 @@ func (q *Queries) GetSupplier(ctx context.Context, arg GetSupplierParams) (Suppl
 		&i.TenantID,
 		&i.Name,
 		&i.Document,
+		&i.DocumentType,
 		&i.Email,
 		&i.Phone,
+		&i.PostalCode,
+		&i.Street,
+		&i.StreetNumber,
+		&i.City,
+		&i.State,
 		&i.Active,
 		&i.DeletedAt,
 		&i.CreatedAt,
@@ -102,7 +126,7 @@ func (q *Queries) GetSupplier(ctx context.Context, arg GetSupplierParams) (Suppl
 }
 
 const listSuppliers = `-- name: ListSuppliers :many
-SELECT id, tenant_id, name, document, email, phone, active, deleted_at, created_at, updated_at
+SELECT id, tenant_id, name, document, document_type, email, phone, postal_code, street, street_number, city, state, active, deleted_at, created_at, updated_at
 FROM suppliers
 WHERE tenant_id = $1 AND deleted_at IS NULL
   AND ($2::text = '' OR name ILIKE '%' || $2 || '%' OR COALESCE(document, '') ILIKE '%' || $2 || '%')
@@ -139,8 +163,14 @@ func (q *Queries) ListSuppliers(ctx context.Context, arg ListSuppliersParams) ([
 			&i.TenantID,
 			&i.Name,
 			&i.Document,
+			&i.DocumentType,
 			&i.Email,
 			&i.Phone,
+			&i.PostalCode,
+			&i.Street,
+			&i.StreetNumber,
+			&i.City,
+			&i.State,
 			&i.Active,
 			&i.DeletedAt,
 			&i.CreatedAt,
@@ -160,7 +190,7 @@ const softDeleteSupplier = `-- name: SoftDeleteSupplier :one
 UPDATE suppliers
 SET deleted_at = now(), updated_at = now()
 WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
-RETURNING id, tenant_id, name, document, email, phone, active, deleted_at, created_at, updated_at
+RETURNING id, tenant_id, name, document, document_type, email, phone, postal_code, street, street_number, city, state, active, deleted_at, created_at, updated_at
 `
 
 type SoftDeleteSupplierParams struct {
@@ -176,8 +206,14 @@ func (q *Queries) SoftDeleteSupplier(ctx context.Context, arg SoftDeleteSupplier
 		&i.TenantID,
 		&i.Name,
 		&i.Document,
+		&i.DocumentType,
 		&i.Email,
 		&i.Phone,
+		&i.PostalCode,
+		&i.Street,
+		&i.StreetNumber,
+		&i.City,
+		&i.State,
 		&i.Active,
 		&i.DeletedAt,
 		&i.CreatedAt,
@@ -188,30 +224,53 @@ func (q *Queries) SoftDeleteSupplier(ctx context.Context, arg SoftDeleteSupplier
 
 const updateSupplier = `-- name: UpdateSupplier :one
 UPDATE suppliers
-SET name = $3, document = $4, email = $5, phone = $6, active = $7, updated_at = now()
-WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
-RETURNING id, tenant_id, name, document, email, phone, active, deleted_at, created_at, updated_at
+SET name = $1,
+    document = $2,
+    document_type = $3,
+    email = $4,
+    phone = $5,
+    postal_code = $6,
+    street = $7,
+    street_number = $8,
+    city = $9,
+    state = $10,
+    active = $11,
+    updated_at = now()
+WHERE id = $12 AND tenant_id = $13 AND deleted_at IS NULL
+RETURNING id, tenant_id, name, document, document_type, email, phone, postal_code, street, street_number, city, state, active, deleted_at, created_at, updated_at
 `
 
 type UpdateSupplierParams struct {
-	ID       pgtype.UUID `json:"id"`
-	TenantID pgtype.UUID `json:"tenant_id"`
-	Name     string      `json:"name"`
-	Document pgtype.Text `json:"document"`
-	Email    pgtype.Text `json:"email"`
-	Phone    pgtype.Text `json:"phone"`
-	Active   bool        `json:"active"`
+	Name         string      `json:"name"`
+	Document     pgtype.Text `json:"document"`
+	DocumentType pgtype.Text `json:"document_type"`
+	Email        pgtype.Text `json:"email"`
+	Phone        pgtype.Text `json:"phone"`
+	PostalCode   pgtype.Text `json:"postal_code"`
+	Street       pgtype.Text `json:"street"`
+	StreetNumber pgtype.Text `json:"street_number"`
+	City         pgtype.Text `json:"city"`
+	State        pgtype.Text `json:"state"`
+	Active       bool        `json:"active"`
+	ID           pgtype.UUID `json:"id"`
+	TenantID     pgtype.UUID `json:"tenant_id"`
 }
 
 func (q *Queries) UpdateSupplier(ctx context.Context, arg UpdateSupplierParams) (Supplier, error) {
 	row := q.db.QueryRow(ctx, updateSupplier,
-		arg.ID,
-		arg.TenantID,
 		arg.Name,
 		arg.Document,
+		arg.DocumentType,
 		arg.Email,
 		arg.Phone,
+		arg.PostalCode,
+		arg.Street,
+		arg.StreetNumber,
+		arg.City,
+		arg.State,
 		arg.Active,
+		arg.ID,
+		arg.TenantID,
 	)
 	var i Supplier
 	err := row.Scan(
@@ -219,8 +278,14 @@ func (q *Queries) UpdateSupplier(ctx context.Context, arg UpdateSupplierParams) 
 		&i.TenantID,
 		&i.Name,
 		&i.Document,
+		&i.DocumentType,
 		&i.Email,
 		&i.Phone,
+		&i.PostalCode,
+		&i.Street,
+		&i.StreetNumber,
+		&i.City,
+		&i.State,
 		&i.Active,
 		&i.DeletedAt,
 		&i.CreatedAt,

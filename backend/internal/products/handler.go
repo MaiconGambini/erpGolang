@@ -79,11 +79,13 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 type productRequest struct {
-	Name   string `json:"name"`
-	Sku    string `json:"sku"`
-	Price  string `json:"price"`
-	Stock  int    `json:"stock"`
-	Active bool   `json:"active"`
+	Name    string  `json:"name"`
+	Sku     string  `json:"sku"`
+	Price   string  `json:"price"`
+	Stock   int     `json:"stock"`
+	Unit    string  `json:"unit"`
+	Barcode *string `json:"barcode"`
+	Active  bool    `json:"active"`
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
@@ -95,7 +97,8 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	item, err := h.svc.Create(r.Context(), tenantID, user.ID, CreateInput{
-		Name: req.Name, Sku: req.Sku, Price: req.Price, Stock: req.Stock, Active: req.Active,
+		Name: req.Name, Sku: req.Sku, Price: req.Price, Stock: req.Stock,
+		Unit: req.Unit, Barcode: req.Barcode, Active: req.Active,
 	})
 	if err != nil {
 		writeServiceError(w, err, "failed to create product")
@@ -114,7 +117,8 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	item, err := h.svc.Update(r.Context(), tenantID, user.ID, id, CreateInput{
-		Name: req.Name, Sku: req.Sku, Price: req.Price, Stock: req.Stock, Active: req.Active,
+		Name: req.Name, Sku: req.Sku, Price: req.Price, Stock: req.Stock,
+		Unit: req.Unit, Barcode: req.Barcode, Active: req.Active,
 	})
 	if err != nil {
 		writeServiceError(w, err, "failed to update product")

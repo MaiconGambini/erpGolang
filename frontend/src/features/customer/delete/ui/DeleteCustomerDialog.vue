@@ -20,6 +20,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import type { Customer } from '@/entities/customer/model/types'
+import { getApiErrorMessage } from '@/shared/api/errors'
 import { useDeleteCustomer } from '../model/use-delete-customer'
 
 const props = defineProps<{ visible: boolean; customer: Customer | null }>()
@@ -36,7 +37,9 @@ function onConfirm() {
   if (!props.customer) return
   mutate(props.customer.id, {
     onSuccess: () => emit('close'),
-    onError: () => { submitError.value = 'Não foi possível excluir o cliente' },
+    onError: (error) => {
+      submitError.value = getApiErrorMessage(error, 'Não foi possível excluir o cliente')
+    },
   })
 }
 </script>

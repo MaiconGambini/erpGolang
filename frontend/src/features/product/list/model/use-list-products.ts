@@ -7,7 +7,7 @@ export function useListProducts(filters: {
   active: Ref<boolean | undefined>
   limit: Ref<number>
   offset: Ref<number>
-}) {
+}, options?: { enabled?: Ref<boolean> }) {
   return useQuery({
     queryKey: computed(() => ['products', {
       search: filters.search.value,
@@ -21,5 +21,6 @@ export function useListProducts(filters: {
       limit: filters.limit.value,
       offset: filters.offset.value,
     }),
+    enabled: computed(() => options?.enabled?.value !== false),
   })
 }

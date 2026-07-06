@@ -1,0 +1,251 @@
+<template>
+  <div v-if="visible" class="overlay" @click.self="emit('close')">
+    <div class="dialog" role="dialog" aria-labelledby="detail-title">
+      <h2 id="detail-title">Detalhes da venda</h2>
+      <p v-if="isLoading" class="state">Carregando...</p>
+      <p v-else-if="isError" class="state error">Erro ao carregar venda</p>
+      <template v-else-if="sale">
+        <dl class="meta">
+          <div>
+            <dt>Cliente</dt>
+            <dd>{{ sale.customerName }}</dd>
+          </div>
+          <div>
+            <dt>Status</dt>
+            <dd>
+              <span class="badge" :class="sale.status">{{ statusLabel(sale.status) }}</span>
+            </dd>
+          </div>
+          <div>
+            <dt>Total</dt>
+            <dd class="total">R$ {{ formatPrice(sale.total) }}</dd>
+          </div>
+          <div>
+            <dt>Data</dt>
+            <dd>{{ formatDate(sale.createdAt) }}</dd>
+          </div>
+        </dl>
+
+        <section v-if="sale.notes" class="notes">
+          <h3>Observações</h3>
+          <p>{{ sale.notes }}</p>
+        </section>
+
+        <section class="items-section">
+          <h3>Itens</h3>
+          <p v-if="!sale.items?.length" class="state">Nenhum item</p>
+          <table v-else class="items-table">
+            <thead>
+              <tr>
+                <th>Produto</th>
+                <th>SKU</th>
+                <th>Qtd</th>
+                <th>Preço unit.</th>
+                <th>Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in sale.items" :key="item.id">
+                <td>{{ item.productName }}</td>
+                <td>{{ item.productSku }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>R$ {{ formatPrice(item.unitPrice) }}</td>
+                <td>R$ {{ formatPrice(item.lineTotal) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <div class="actions">
+          <button type="button" class="secondary" @click="emit('close')">Fechar</button>
+          <AppButton v-if="sale.status === 'draft'" @click="emit('edit', sale.id)">
+            Editar
+          </AppButton>
+        </div>
+      </template>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useQuery } from '@tanstack/vue-query'
+import { getSale } from '@/entities/sale/api/sale.api'
+import type { SaleStatus } from '@/entities/sale/model/types'
+import AppButton from '@/shared/ui/AppButton.vue'
+
+const props = defineProps<{ visible: boolean; saleId: string | null }>()
+const emit = defineEmits<{ close: []; edit: [id: string] }>()
+
+const { data: sale, isLoading, isError } = useQuery({
+  queryKey: computed(() => ['sale', props.saleId]),
+  queryFn: () => getSale(props.saleId!),
+  enabled: computed(() => props.visible && !!props.saleId),
+})
+
+function formatPrice(value: string) {
+  const n = Number(value)
+  if (Number.isNaN(n)) return value
+  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function statusLabel(status: SaleStatus) {
+  const map: Record<SaleStatus, string> = {
+    draft: 'Rascunho',
+    confirmed: 'Confirmada',
+    cancelled: 'Cancelada',
+  }
+  return map[status]
+}
+</script>
+
+<style scoped>
+.overlay {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  position: fixed;
+  z-index: 50;
+}
+
+.dialog {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  max-height: 90vh;
+  max-width: 640px;
+  overflow-y: auto;
+  padding: 24px;
+  width: 100%;
+}
+
+h2 {
+  font-size: 18px;
+  margin: 0 0 20px;
+}
+
+h3 {
+  font-size: 14px;
+  margin: 0 0 10px;
+}
+
+.state {
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.state.error {
+  color: #dc2626;
+}
+
+.meta {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr 1fr;
+  margin: 0 0 20px;
+}
+
+.meta div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+dt {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+dd {
+  font-size: 14px;
+  margin: 0;
+}
+
+.total {
+  font-weight: 600;
+}
+
+.badge {
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 12px;
+  padding: 3px 10px;
+  width: fit-content;
+}
+
+.badge.draft {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.badge.confirmed {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.badge.cancelled {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.notes {
+  margin-bottom: 20px;
+}
+
+.notes p {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.items-section {
+  margin-bottom: 20px;
+}
+
+.items-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.items-table th,
+.items-table td {
+  border-top: 1px solid var(--color-border);
+  font-size: 13px;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.items-table th {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.secondary {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font: inherit;
+  padding: 8px 14px;
+}
+</style>

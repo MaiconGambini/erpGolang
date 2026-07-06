@@ -1,11 +1,13 @@
 <template>
   <section class="panel">
-    <div class="toolbar">
+    <div v-if="!lowStock" class="toolbar">
       <input v-model="searchInput" placeholder="Buscar por nome ou SKU" />
     </div>
     <p v-if="isLoading" class="state">Carregando...</p>
     <p v-else-if="isError" class="state error">Erro ao carregar produtos</p>
-    <p v-else-if="!products.length" class="state">Nenhum produto encontrado</p>
+    <p v-else-if="!products.length" class="state">
+      {{ lowStock ? 'Nenhum produto com estoque baixo' : 'Nenhum produto encontrado' }}
+    </p>
     <table v-else>
       <thead>
         <tr>
@@ -37,7 +39,7 @@
         </tr>
       </tbody>
     </table>
-    <footer v-if="total > limit" class="pagination">
+    <footer v-if="!lowStock && total > limit" class="pagination">
       <button type="button" :disabled="offset === 0" @click="offset = Math.max(0, offset - limit)">
         Anterior
       </button>
@@ -50,15 +52,21 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, toRef, watch } from 'vue'
 import type { Product } from '@/entities/product/model/types'
+import { useListLowStockProducts } from '@/features/product/list/model/use-list-low-stock-products'
 import { useListProducts } from '@/features/product/list/model/use-list-products'
 import { LOW_STOCK_THRESHOLD } from '@/shared/config/inventory'
+
+const props = defineProps<{ lowStock?: boolean }>()
 
 const emit = defineEmits<{
   edit: [product: Product]
   delete: [product: Product]
 }>()
+
+const lowStockRef = toRef(props, 'lowStock')
+const listEnabled = computed(() => !props.lowStock)
 
 const searchInput = ref('')
 const searchModel = ref('')
@@ -75,15 +83,26 @@ watch(searchInput, (value) => {
   }, 300)
 })
 
-const { data, isLoading, isError } = useListProducts({
+const listQuery = useListProducts({
   search: searchModel,
   active: ref(undefined),
   limit,
   offset,
+}, { enabled: listEnabled })
+
+const lowStockQuery = useListLowStockProducts(lowStockRef)
+
+const isLoading = computed(() => (props.lowStock ? lowStockQuery.isLoading.value : listQuery.isLoading.value))
+const isError = computed(() => (props.lowStock ? lowStockQuery.isError.value : listQuery.isError.value))
+
+const products = computed(() => {
+  if (props.lowStock) {
+    return lowStockQuery.data.value ?? []
+  }
+  return listQuery.data.value?.data ?? []
 })
 
-const products = computed(() => data.value?.data ?? [])
-const total = computed(() => data.value?.pagination.total ?? 0)
+const total = computed(() => (props.lowStock ? products.value.length : listQuery.data.value?.pagination.total ?? 0))
 
 function formatPrice(value: string) {
   const n = Number(value)

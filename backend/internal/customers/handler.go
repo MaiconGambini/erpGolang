@@ -60,11 +60,17 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 type customerRequest struct {
-	Name     string  `json:"name"`
-	Document *string `json:"document"`
-	Email    *string `json:"email"`
-	Phone    *string `json:"phone"`
-	Active   bool    `json:"active"`
+	Name         string  `json:"name"`
+	Document     *string `json:"document"`
+	DocumentType *string `json:"documentType"`
+	Email        *string `json:"email"`
+	Phone        *string `json:"phone"`
+	PostalCode   *string `json:"postalCode"`
+	Street       *string `json:"street"`
+	StreetNumber *string `json:"streetNumber"`
+	City         *string `json:"city"`
+	State        *string `json:"state"`
+	Active       bool    `json:"active"`
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
@@ -75,11 +81,9 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, "INVALID_JSON", "invalid request body", http.StatusBadRequest)
 		return
 	}
-	item, err := h.svc.Create(r.Context(), tenantID, user.ID, CreateInput{
-		Name: req.Name, Document: req.Document, Email: req.Email, Phone: req.Phone, Active: req.Active,
-	})
+	item, err := h.svc.Create(r.Context(), tenantID, user.ID, requestToInput(req))
 	if err != nil {
-		httpx.Error(w, "INTERNAL_ERROR", "failed to create customer", http.StatusInternalServerError)
+		writeServiceError(w, err, "failed to create customer")
 		return
 	}
 	httpx.JSON(w, http.StatusCreated, item)
@@ -94,15 +98,9 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, "INVALID_JSON", "invalid request body", http.StatusBadRequest)
 		return
 	}
-	item, err := h.svc.Update(r.Context(), tenantID, user.ID, id, CreateInput{
-		Name: req.Name, Document: req.Document, Email: req.Email, Phone: req.Phone, Active: req.Active,
-	})
+	item, err := h.svc.Update(r.Context(), tenantID, user.ID, id, requestToInput(req))
 	if err != nil {
-		if errors.Is(err, errNotFound) {
-			httpx.Error(w, "NOT_FOUND", "customer not found", http.StatusNotFound)
-			return
-		}
-		httpx.Error(w, "INTERNAL_ERROR", "failed to update customer", http.StatusInternalServerError)
+		writeServiceError(w, err, "failed to update customer")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, item)
@@ -113,12 +111,39 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	user, _ := authctx.UserFromContext(r.Context())
 	id := chi.URLParam(r, "id")
 	if err := h.svc.Delete(r.Context(), tenantID, user.ID, id); err != nil {
-		if errors.Is(err, errNotFound) {
-			httpx.Error(w, "NOT_FOUND", "customer not found", http.StatusNotFound)
-			return
-		}
-		httpx.Error(w, "INTERNAL_ERROR", "failed to delete customer", http.StatusInternalServerError)
+		writeServiceError(w, err, "failed to delete customer")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func requestToInput(req customerRequest) CreateInput {
+	return CreateInput{
+		Name:         req.Name,
+		Document:     req.Document,
+		DocumentType: req.DocumentType,
+		Email:        req.Email,
+		Phone:        req.Phone,
+		PostalCode:   req.PostalCode,
+		Street:       req.Street,
+		StreetNumber: req.StreetNumber,
+		City:         req.City,
+		State:        req.State,
+		Active:       req.Active,
+	}
+}
+
+func writeServiceError(w http.ResponseWriter, err error, fallback string) {
+	switch {
+	case errors.Is(err, errNotFound):
+		httpx.Error(w, "NOT_FOUND", "customer not found", http.StatusNotFound)
+	case errors.Is(err, errValidation):
+		httpx.Error(w, "VALIDATION_ERROR", "invalid customer data", http.StatusBadRequest)
+	case errors.Is(err, errDuplicateDocument):
+		httpx.Error(w, "DUPLICATE_DOCUMENT", "document already exists for this tenant", http.StatusConflict)
+	case errors.Is(err, errHasLinkedSales):
+		httpx.Error(w, "CUSTOMER_HAS_SALES", "customer has linked sales", http.StatusConflict)
+	default:
+		httpx.Error(w, "INTERNAL_ERROR", fallback, http.StatusInternalServerError)
+	}
 }

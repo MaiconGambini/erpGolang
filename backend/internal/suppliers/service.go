@@ -7,9 +7,11 @@ import (
 
 	"github.com/MaiconGambini/erpGolang/backend/gen/db"
 	sharedaudit "github.com/MaiconGambini/erpGolang/backend/internal/shared/audit"
+	"github.com/MaiconGambini/erpGolang/backend/internal/shared/party"
 	"github.com/MaiconGambini/erpGolang/backend/internal/shared/pgutil"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -23,14 +25,20 @@ func NewService(pool *pgxpool.Pool, audit sharedaudit.Recorder) *Service {
 }
 
 type SupplierDTO struct {
-	ID        string  `json:"id"`
-	Name      string  `json:"name"`
-	Document  *string `json:"document,omitempty"`
-	Email     *string `json:"email,omitempty"`
-	Phone     *string `json:"phone,omitempty"`
-	Active    bool    `json:"active"`
-	CreatedAt string  `json:"createdAt"`
-	UpdatedAt string  `json:"updatedAt"`
+	ID           string  `json:"id"`
+	Name         string  `json:"name"`
+	Document     *string `json:"document,omitempty"`
+	DocumentType *string `json:"documentType,omitempty"`
+	Email        *string `json:"email,omitempty"`
+	Phone        *string `json:"phone,omitempty"`
+	PostalCode   *string `json:"postalCode,omitempty"`
+	Street       *string `json:"street,omitempty"`
+	StreetNumber *string `json:"streetNumber,omitempty"`
+	City         *string `json:"city,omitempty"`
+	State        *string `json:"state,omitempty"`
+	Active       bool    `json:"active"`
+	CreatedAt    string  `json:"createdAt"`
+	UpdatedAt    string  `json:"updatedAt"`
 }
 
 type ListParams struct {
@@ -39,6 +47,20 @@ type ListParams struct {
 	Active   *bool
 	Limit    int
 	Offset   int
+}
+
+type CreateInput struct {
+	Name         string
+	Document     *string
+	DocumentType *string
+	Email        *string
+	Phone        *string
+	PostalCode   *string
+	Street       *string
+	StreetNumber *string
+	City         *string
+	State        *string
+	Active       bool
 }
 
 func (s *Service) List(ctx context.Context, p ListParams) ([]SupplierDTO, int64, error) {
@@ -88,25 +110,18 @@ func (s *Service) Get(ctx context.Context, tenantID, id string) (SupplierDTO, er
 	return toDTO(row), nil
 }
 
-type CreateInput struct {
-	Name     string
-	Document *string
-	Email    *string
-	Phone    *string
-	Active   bool
-}
-
 func (s *Service) Create(ctx context.Context, tenantID, actorID string, in CreateInput) (SupplierDTO, error) {
-	tid, _ := uuid.Parse(tenantID)
-	row, err := s.queries.CreateSupplier(ctx, db.CreateSupplierParams{
-		TenantID: pgutil.UUIDToPg(tid),
-		Name:     in.Name,
-		Document: pgutil.TextFromPtr(in.Document),
-		Email:    pgutil.TextFromPtr(in.Email),
-		Phone:    pgutil.TextFromPtr(in.Phone),
-		Active:   in.Active,
-	})
+	params, err := buildParams(in)
 	if err != nil {
+		return SupplierDTO{}, err
+	}
+	tid, _ := uuid.Parse(tenantID)
+	params.TenantID = pgutil.UUIDToPg(tid)
+	row, err := s.queries.CreateSupplier(ctx, params)
+	if err != nil {
+		if isUniqueViolation(err) {
+			return SupplierDTO{}, errDuplicateDocument
+		}
 		return SupplierDTO{}, err
 	}
 	dto := toDTO(row)
@@ -118,6 +133,10 @@ func (s *Service) Create(ctx context.Context, tenantID, actorID string, in Creat
 }
 
 func (s *Service) Update(ctx context.Context, tenantID, actorID, id string, in CreateInput) (SupplierDTO, error) {
+	params, err := buildParams(in)
+	if err != nil {
+		return SupplierDTO{}, err
+	}
 	tid, _ := uuid.Parse(tenantID)
 	sid, _ := uuid.Parse(id)
 	before, err := s.Get(ctx, tenantID, id)
@@ -125,17 +144,26 @@ func (s *Service) Update(ctx context.Context, tenantID, actorID, id string, in C
 		return SupplierDTO{}, err
 	}
 	row, err := s.queries.UpdateSupplier(ctx, db.UpdateSupplierParams{
-		ID:       pgutil.UUIDToPg(sid),
-		TenantID: pgutil.UUIDToPg(tid),
-		Name:     in.Name,
-		Document: pgutil.TextFromPtr(in.Document),
-		Email:    pgutil.TextFromPtr(in.Email),
-		Phone:    pgutil.TextFromPtr(in.Phone),
-		Active:   in.Active,
+		ID:           pgutil.UUIDToPg(sid),
+		TenantID:     pgutil.UUIDToPg(tid),
+		Name:         params.Name,
+		Document:     params.Document,
+		DocumentType: params.DocumentType,
+		Email:        params.Email,
+		Phone:        params.Phone,
+		PostalCode:   params.PostalCode,
+		Street:       params.Street,
+		StreetNumber: params.StreetNumber,
+		City:         params.City,
+		State:        params.State,
+		Active:       params.Active,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return SupplierDTO{}, errNotFound
+		}
+		if isUniqueViolation(err) {
+			return SupplierDTO{}, errDuplicateDocument
 		}
 		return SupplierDTO{}, err
 	}
@@ -171,19 +199,62 @@ func (s *Service) Delete(ctx context.Context, tenantID, actorID, id string) erro
 	return nil
 }
 
-var errNotFound = errors.New("not found")
+var (
+	errNotFound          = errors.New("not found")
+	errValidation        = errors.New("validation error")
+	errDuplicateDocument = errors.New("duplicate document")
+)
+
+func buildParams(in CreateInput) (db.CreateSupplierParams, error) {
+	if err := party.ValidatePartyInput(party.PartyInput{
+		Name:         in.Name,
+		DocumentType: in.DocumentType,
+		Document:     in.Document,
+		Email:        in.Email,
+		State:        in.State,
+	}); err != nil {
+		return db.CreateSupplierParams{}, errValidation
+	}
+	return db.CreateSupplierParams{
+		Name:         in.Name,
+		Document:     pgutil.TextFromPtr(party.NormalizeDocumentPtr(in.Document)),
+		DocumentType: pgutil.TextFromPtr(party.NormalizeDocumentTypePtr(in.DocumentType)),
+		Email:        pgutil.TextFromPtr(in.Email),
+		Phone:        pgutil.TextFromPtr(in.Phone),
+		PostalCode:   pgutil.TextFromPtr(in.PostalCode),
+		Street:       pgutil.TextFromPtr(in.Street),
+		StreetNumber: pgutil.TextFromPtr(in.StreetNumber),
+		City:         pgutil.TextFromPtr(in.City),
+		State:        pgutil.TextFromPtr(party.NormalizeStatePtr(in.State)),
+		Active:       in.Active,
+	}, nil
+}
+
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505"
+	}
+	return false
+}
 
 func toDTO(row db.Supplier) SupplierDTO {
 	id, _ := pgutil.PgToUUID(row.ID)
 	return SupplierDTO{
-		ID:        id.String(),
-		Name:      row.Name,
-		Document:  pgutil.TextPtr(row.Document),
-		Email:     pgutil.TextPtr(row.Email),
-		Phone:     pgutil.TextPtr(row.Phone),
-		Active:    row.Active,
-		CreatedAt: row.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt: row.UpdatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+		ID:           id.String(),
+		Name:         row.Name,
+		Document:     pgutil.TextPtr(row.Document),
+		DocumentType: pgutil.TextPtr(row.DocumentType),
+		Email:        pgutil.TextPtr(row.Email),
+		Phone:        pgutil.TextPtr(row.Phone),
+		PostalCode:   pgutil.TextPtr(row.PostalCode),
+		Street:       pgutil.TextPtr(row.Street),
+		StreetNumber: pgutil.TextPtr(row.StreetNumber),
+		City:         pgutil.TextPtr(row.City),
+		State:        pgutil.TextPtr(row.State),
+		Active:       row.Active,
+		CreatedAt:    row.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:    row.UpdatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
 	}
 }
 

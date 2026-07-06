@@ -20,6 +20,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import type { Supplier } from '@/entities/supplier/model/types'
+import { getApiErrorMessage } from '@/shared/api/errors'
 import { useDeleteSupplier } from '../model/use-delete-supplier'
 
 const props = defineProps<{ visible: boolean; supplier: Supplier | null }>()
@@ -36,7 +37,9 @@ function onConfirm() {
   if (!props.supplier) return
   mutate(props.supplier.id, {
     onSuccess: () => emit('close'),
-    onError: () => { submitError.value = 'Não foi possível excluir o fornecedor' },
+    onError: (error) => {
+      submitError.value = getApiErrorMessage(error, 'Não foi possível excluir o fornecedor')
+    },
   })
 }
 </script>

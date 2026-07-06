@@ -1,6 +1,7 @@
 import { apiClient } from '@/shared/api/client'
 import type { Paginated } from '@/shared/api/types'
 import type { Supplier } from '../model/types'
+import type { DocumentType } from '@/shared/lib/document'
 
 export interface ListSuppliersParams {
   limit?: number
@@ -22,8 +23,14 @@ export async function getSupplier(id: string): Promise<Supplier> {
 export interface SupplierInput {
   name: string
   document?: string
+  documentType?: DocumentType
   email?: string
   phone?: string
+  postalCode?: string
+  street?: string
+  streetNumber?: string
+  city?: string
+  state?: string
   active: boolean
 }
 

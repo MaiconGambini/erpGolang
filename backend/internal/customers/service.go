@@ -7,9 +7,11 @@ import (
 
 	"github.com/MaiconGambini/erpGolang/backend/gen/db"
 	sharedaudit "github.com/MaiconGambini/erpGolang/backend/internal/shared/audit"
+	"github.com/MaiconGambini/erpGolang/backend/internal/shared/party"
 	"github.com/MaiconGambini/erpGolang/backend/internal/shared/pgutil"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -23,14 +25,20 @@ func NewService(pool *pgxpool.Pool, audit sharedaudit.Recorder) *Service {
 }
 
 type CustomerDTO struct {
-	ID        string  `json:"id"`
-	Name      string  `json:"name"`
-	Document  *string `json:"document,omitempty"`
-	Email     *string `json:"email,omitempty"`
-	Phone     *string `json:"phone,omitempty"`
-	Active    bool    `json:"active"`
-	CreatedAt string  `json:"createdAt"`
-	UpdatedAt string  `json:"updatedAt"`
+	ID           string  `json:"id"`
+	Name         string  `json:"name"`
+	Document     *string `json:"document,omitempty"`
+	DocumentType *string `json:"documentType,omitempty"`
+	Email        *string `json:"email,omitempty"`
+	Phone        *string `json:"phone,omitempty"`
+	PostalCode   *string `json:"postalCode,omitempty"`
+	Street       *string `json:"street,omitempty"`
+	StreetNumber *string `json:"streetNumber,omitempty"`
+	City         *string `json:"city,omitempty"`
+	State        *string `json:"state,omitempty"`
+	Active       bool    `json:"active"`
+	CreatedAt    string  `json:"createdAt"`
+	UpdatedAt    string  `json:"updatedAt"`
 }
 
 type ListParams struct {
@@ -41,6 +49,20 @@ type ListParams struct {
 	Offset   int
 }
 
+type CreateInput struct {
+	Name         string
+	Document     *string
+	DocumentType *string
+	Email        *string
+	Phone        *string
+	PostalCode   *string
+	Street       *string
+	StreetNumber *string
+	City         *string
+	State        *string
+	Active       bool
+}
+
 func (s *Service) List(ctx context.Context, p ListParams) ([]CustomerDTO, int64, error) {
 	tid, err := uuid.Parse(p.TenantID)
 	if err != nil {
@@ -48,9 +70,9 @@ func (s *Service) List(ctx context.Context, p ListParams) ([]CustomerDTO, int64,
 	}
 	pgTenant := pgutil.UUIDToPg(tid)
 	rows, err := s.queries.ListCustomers(ctx, db.ListCustomersParams{
-		TenantID: pgTenant,
-		Search:   p.Search,
-		Active:   pgutil.BoolFromPtr(p.Active),
+		TenantID:    pgTenant,
+		Search:      p.Search,
+		Active:      pgutil.BoolFromPtr(p.Active),
 		LimitCount:  int32(p.Limit),
 		OffsetCount: int32(p.Offset),
 	})
@@ -88,25 +110,18 @@ func (s *Service) Get(ctx context.Context, tenantID, id string) (CustomerDTO, er
 	return toDTO(row), nil
 }
 
-type CreateInput struct {
-	Name     string
-	Document *string
-	Email    *string
-	Phone    *string
-	Active   bool
-}
-
 func (s *Service) Create(ctx context.Context, tenantID, actorID string, in CreateInput) (CustomerDTO, error) {
-	tid, _ := uuid.Parse(tenantID)
-	row, err := s.queries.CreateCustomer(ctx, db.CreateCustomerParams{
-		TenantID: pgutil.UUIDToPg(tid),
-		Name:     in.Name,
-		Document: pgutil.TextFromPtr(in.Document),
-		Email:    pgutil.TextFromPtr(in.Email),
-		Phone:    pgutil.TextFromPtr(in.Phone),
-		Active:   in.Active,
-	})
+	params, err := buildParams(in)
 	if err != nil {
+		return CustomerDTO{}, err
+	}
+	tid, _ := uuid.Parse(tenantID)
+	params.TenantID = pgutil.UUIDToPg(tid)
+	row, err := s.queries.CreateCustomer(ctx, params)
+	if err != nil {
+		if isUniqueViolation(err) {
+			return CustomerDTO{}, errDuplicateDocument
+		}
 		return CustomerDTO{}, err
 	}
 	dto := toDTO(row)
@@ -118,6 +133,10 @@ func (s *Service) Create(ctx context.Context, tenantID, actorID string, in Creat
 }
 
 func (s *Service) Update(ctx context.Context, tenantID, actorID, id string, in CreateInput) (CustomerDTO, error) {
+	params, err := buildParams(in)
+	if err != nil {
+		return CustomerDTO{}, err
+	}
 	tid, _ := uuid.Parse(tenantID)
 	cid, _ := uuid.Parse(id)
 	before, err := s.Get(ctx, tenantID, id)
@@ -125,17 +144,26 @@ func (s *Service) Update(ctx context.Context, tenantID, actorID, id string, in C
 		return CustomerDTO{}, err
 	}
 	row, err := s.queries.UpdateCustomer(ctx, db.UpdateCustomerParams{
-		ID:       pgutil.UUIDToPg(cid),
-		TenantID: pgutil.UUIDToPg(tid),
-		Name:     in.Name,
-		Document: pgutil.TextFromPtr(in.Document),
-		Email:    pgutil.TextFromPtr(in.Email),
-		Phone:    pgutil.TextFromPtr(in.Phone),
-		Active:   in.Active,
+		ID:           pgutil.UUIDToPg(cid),
+		TenantID:     pgutil.UUIDToPg(tid),
+		Name:         params.Name,
+		Document:     params.Document,
+		DocumentType: params.DocumentType,
+		Email:        params.Email,
+		Phone:        params.Phone,
+		PostalCode:   params.PostalCode,
+		Street:       params.Street,
+		StreetNumber: params.StreetNumber,
+		City:         params.City,
+		State:        params.State,
+		Active:       params.Active,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return CustomerDTO{}, errNotFound
+		}
+		if isUniqueViolation(err) {
+			return CustomerDTO{}, errDuplicateDocument
 		}
 		return CustomerDTO{}, err
 	}
@@ -154,6 +182,16 @@ func (s *Service) Delete(ctx context.Context, tenantID, actorID, id string) erro
 	if err != nil {
 		return err
 	}
+	count, err := s.queries.CountSalesByCustomer(ctx, db.CountSalesByCustomerParams{
+		TenantID:   pgutil.UUIDToPg(tid),
+		CustomerID: pgutil.UUIDToPg(cid),
+	})
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return errHasLinkedSales
+	}
 	_, err = s.queries.SoftDeleteCustomer(ctx, db.SoftDeleteCustomerParams{
 		ID:       pgutil.UUIDToPg(cid),
 		TenantID: pgutil.UUIDToPg(tid),
@@ -171,19 +209,63 @@ func (s *Service) Delete(ctx context.Context, tenantID, actorID, id string) erro
 	return nil
 }
 
-var errNotFound = errors.New("not found")
+var (
+	errNotFound          = errors.New("not found")
+	errValidation        = errors.New("validation error")
+	errDuplicateDocument = errors.New("duplicate document")
+	errHasLinkedSales    = errors.New("customer has linked sales")
+)
+
+func buildParams(in CreateInput) (db.CreateCustomerParams, error) {
+	if err := party.ValidatePartyInput(party.PartyInput{
+		Name:         in.Name,
+		DocumentType: in.DocumentType,
+		Document:     in.Document,
+		Email:        in.Email,
+		State:        in.State,
+	}); err != nil {
+		return db.CreateCustomerParams{}, errValidation
+	}
+	return db.CreateCustomerParams{
+		Name:         in.Name,
+		Document:     pgutil.TextFromPtr(party.NormalizeDocumentPtr(in.Document)),
+		DocumentType: pgutil.TextFromPtr(party.NormalizeDocumentTypePtr(in.DocumentType)),
+		Email:        pgutil.TextFromPtr(in.Email),
+		Phone:        pgutil.TextFromPtr(in.Phone),
+		PostalCode:   pgutil.TextFromPtr(in.PostalCode),
+		Street:       pgutil.TextFromPtr(in.Street),
+		StreetNumber: pgutil.TextFromPtr(in.StreetNumber),
+		City:         pgutil.TextFromPtr(in.City),
+		State:        pgutil.TextFromPtr(party.NormalizeStatePtr(in.State)),
+		Active:       in.Active,
+	}, nil
+}
+
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505"
+	}
+	return false
+}
 
 func toDTO(row db.Customer) CustomerDTO {
 	id, _ := pgutil.PgToUUID(row.ID)
 	return CustomerDTO{
-		ID:        id.String(),
-		Name:      row.Name,
-		Document:  pgutil.TextPtr(row.Document),
-		Email:     pgutil.TextPtr(row.Email),
-		Phone:     pgutil.TextPtr(row.Phone),
-		Active:    row.Active,
-		CreatedAt: row.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt: row.UpdatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+		ID:           id.String(),
+		Name:         row.Name,
+		Document:     pgutil.TextPtr(row.Document),
+		DocumentType: pgutil.TextPtr(row.DocumentType),
+		Email:        pgutil.TextPtr(row.Email),
+		Phone:        pgutil.TextPtr(row.Phone),
+		PostalCode:   pgutil.TextPtr(row.PostalCode),
+		Street:       pgutil.TextPtr(row.Street),
+		StreetNumber: pgutil.TextPtr(row.StreetNumber),
+		City:         pgutil.TextPtr(row.City),
+		State:        pgutil.TextPtr(row.State),
+		Active:       row.Active,
+		CreatedAt:    row.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:    row.UpdatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
 	}
 }
 

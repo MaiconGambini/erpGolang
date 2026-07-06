@@ -33,6 +33,22 @@ func (q *Queries) CountSales(ctx context.Context, arg CountSalesParams) (int64, 
 	return column_1, err
 }
 
+const countSalesByCustomer = `-- name: CountSalesByCustomer :one
+SELECT count(*)::bigint FROM sales WHERE tenant_id = $1 AND customer_id = $2 AND deleted_at IS NULL
+`
+
+type CountSalesByCustomerParams struct {
+	TenantID   pgtype.UUID `json:"tenant_id"`
+	CustomerID pgtype.UUID `json:"customer_id"`
+}
+
+func (q *Queries) CountSalesByCustomer(ctx context.Context, arg CountSalesByCustomerParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countSalesByCustomer, arg.TenantID, arg.CustomerID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createSale = `-- name: CreateSale :one
 INSERT INTO sales (tenant_id, customer_id, status, total, notes)
 VALUES ($1, $2, $3, $4, $5)
@@ -110,16 +126,16 @@ func (q *Queries) CreateSaleItem(ctx context.Context, arg CreateSaleItemParams) 
 
 const decrementProductStock = `-- name: DecrementProductStock :one
 UPDATE products
-SET stock = stock - $3, updated_at = now()
-WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL AND active = true
-  AND stock >= $3
+SET stock = stock - $1, updated_at = now()
+WHERE id = $2 AND tenant_id = $3 AND deleted_at IS NULL AND active = true
+  AND stock >= $1
 RETURNING id, stock
 `
 
 type DecrementProductStockParams struct {
+	Quantity int32       `json:"quantity"`
 	ID       pgtype.UUID `json:"id"`
 	TenantID pgtype.UUID `json:"tenant_id"`
-	Quantity int32       `json:"quantity"`
 }
 
 type DecrementProductStockRow struct {
@@ -128,7 +144,7 @@ type DecrementProductStockRow struct {
 }
 
 func (q *Queries) DecrementProductStock(ctx context.Context, arg DecrementProductStockParams) (DecrementProductStockRow, error) {
-	row := q.db.QueryRow(ctx, decrementProductStock, arg.ID, arg.TenantID, arg.Quantity)
+	row := q.db.QueryRow(ctx, decrementProductStock, arg.Quantity, arg.ID, arg.TenantID)
 	var i DecrementProductStockRow
 	err := row.Scan(&i.ID, &i.Stock)
 	return i, err
@@ -195,18 +211,18 @@ func (q *Queries) GetSale(ctx context.Context, arg GetSaleParams) (GetSaleRow, e
 
 const incrementProductStock = `-- name: IncrementProductStock :exec
 UPDATE products
-SET stock = stock + $3, updated_at = now()
-WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+SET stock = stock + $1, updated_at = now()
+WHERE id = $2 AND tenant_id = $3 AND deleted_at IS NULL
 `
 
 type IncrementProductStockParams struct {
+	Quantity int32       `json:"quantity"`
 	ID       pgtype.UUID `json:"id"`
 	TenantID pgtype.UUID `json:"tenant_id"`
-	Quantity int32       `json:"quantity"`
 }
 
 func (q *Queries) IncrementProductStock(ctx context.Context, arg IncrementProductStockParams) error {
-	_, err := q.db.Exec(ctx, incrementProductStock, arg.ID, arg.TenantID, arg.Quantity)
+	_, err := q.db.Exec(ctx, incrementProductStock, arg.Quantity, arg.ID, arg.TenantID)
 	return err
 }
 
@@ -262,7 +278,10 @@ func (q *Queries) ListSaleItems(ctx context.Context, arg ListSaleItemsParams) ([
 		}
 		items = append(items, i)
 	}
-	return items, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listSales = `-- name: ListSales :many
@@ -329,7 +348,10 @@ func (q *Queries) ListSales(ctx context.Context, arg ListSalesParams) ([]ListSal
 		}
 		items = append(items, i)
 	}
-	return items, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const softDeleteSale = `-- name: SoftDeleteSale :one
@@ -363,26 +385,26 @@ func (q *Queries) SoftDeleteSale(ctx context.Context, arg SoftDeleteSaleParams) 
 
 const updateSaleDraft = `-- name: UpdateSaleDraft :one
 UPDATE sales
-SET customer_id = $3, total = $4, notes = $5, updated_at = now()
-WHERE id = $1 AND tenant_id = $2 AND status = 'draft' AND deleted_at IS NULL
+SET customer_id = $1, total = $2, notes = $3, updated_at = now()
+WHERE id = $4 AND tenant_id = $5 AND status = 'draft' AND deleted_at IS NULL
 RETURNING id, tenant_id, customer_id, status, total, notes, deleted_at, created_at, updated_at
 `
 
 type UpdateSaleDraftParams struct {
-	ID         pgtype.UUID    `json:"id"`
-	TenantID   pgtype.UUID    `json:"tenant_id"`
 	CustomerID pgtype.UUID    `json:"customer_id"`
 	Total      pgtype.Numeric `json:"total"`
 	Notes      pgtype.Text    `json:"notes"`
+	ID         pgtype.UUID    `json:"id"`
+	TenantID   pgtype.UUID    `json:"tenant_id"`
 }
 
 func (q *Queries) UpdateSaleDraft(ctx context.Context, arg UpdateSaleDraftParams) (Sale, error) {
 	row := q.db.QueryRow(ctx, updateSaleDraft,
-		arg.ID,
-		arg.TenantID,
 		arg.CustomerID,
 		arg.Total,
 		arg.Notes,
+		arg.ID,
+		arg.TenantID,
 	)
 	var i Sale
 	err := row.Scan(
@@ -401,19 +423,25 @@ func (q *Queries) UpdateSaleDraft(ctx context.Context, arg UpdateSaleDraftParams
 
 const updateSaleStatus = `-- name: UpdateSaleStatus :one
 UPDATE sales
-SET status = $3, updated_at = now()
-WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+SET status = $1, updated_at = now()
+WHERE id = $2 AND tenant_id = $3 AND status = $4 AND deleted_at IS NULL
 RETURNING id, tenant_id, customer_id, status, total, notes, deleted_at, created_at, updated_at
 `
 
 type UpdateSaleStatusParams struct {
-	ID       pgtype.UUID `json:"id"`
-	TenantID pgtype.UUID `json:"tenant_id"`
-	Status   string      `json:"status"`
+	Status     string      `json:"status"`
+	ID         pgtype.UUID `json:"id"`
+	TenantID   pgtype.UUID `json:"tenant_id"`
+	FromStatus string      `json:"from_status"`
 }
 
 func (q *Queries) UpdateSaleStatus(ctx context.Context, arg UpdateSaleStatusParams) (Sale, error) {
-	row := q.db.QueryRow(ctx, updateSaleStatus, arg.ID, arg.TenantID, arg.Status)
+	row := q.db.QueryRow(ctx, updateSaleStatus,
+		arg.Status,
+		arg.ID,
+		arg.TenantID,
+		arg.FromStatus,
+	)
 	var i Sale
 	err := row.Scan(
 		&i.ID,

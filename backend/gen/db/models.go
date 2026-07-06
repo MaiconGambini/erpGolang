@@ -32,16 +32,22 @@ type AuthSession struct {
 }
 
 type Customer struct {
-	ID        pgtype.UUID        `json:"id"`
-	TenantID  pgtype.UUID        `json:"tenant_id"`
-	Name      string             `json:"name"`
-	Document  pgtype.Text        `json:"document"`
-	Email     pgtype.Text        `json:"email"`
-	Phone     pgtype.Text        `json:"phone"`
-	Active    bool               `json:"active"`
-	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	ID           pgtype.UUID        `json:"id"`
+	TenantID     pgtype.UUID        `json:"tenant_id"`
+	Name         string             `json:"name"`
+	Document     pgtype.Text        `json:"document"`
+	DocumentType pgtype.Text        `json:"document_type"`
+	Email        pgtype.Text        `json:"email"`
+	Phone        pgtype.Text        `json:"phone"`
+	PostalCode   pgtype.Text        `json:"postal_code"`
+	Street       pgtype.Text        `json:"street"`
+	StreetNumber pgtype.Text        `json:"street_number"`
+	City         pgtype.Text        `json:"city"`
+	State        pgtype.Text        `json:"state"`
+	Active       bool               `json:"active"`
+	DeletedAt    pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Product struct {
@@ -51,19 +57,8 @@ type Product struct {
 	Sku       string             `json:"sku"`
 	Price     pgtype.Numeric     `json:"price"`
 	Stock     int32              `json:"stock"`
-	Active    bool               `json:"active"`
-	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
-}
-
-type Supplier struct {
-	ID        pgtype.UUID        `json:"id"`
-	TenantID  pgtype.UUID        `json:"tenant_id"`
-	Name      string             `json:"name"`
-	Document  pgtype.Text        `json:"document"`
-	Email     pgtype.Text        `json:"email"`
-	Phone     pgtype.Text        `json:"phone"`
+	Unit      string             `json:"unit"`
+	Barcode   pgtype.Text        `json:"barcode"`
 	Active    bool               `json:"active"`
 	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
@@ -91,6 +86,25 @@ type SaleItem struct {
 	UnitPrice pgtype.Numeric     `json:"unit_price"`
 	LineTotal pgtype.Numeric     `json:"line_total"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type Supplier struct {
+	ID           pgtype.UUID        `json:"id"`
+	TenantID     pgtype.UUID        `json:"tenant_id"`
+	Name         string             `json:"name"`
+	Document     pgtype.Text        `json:"document"`
+	DocumentType pgtype.Text        `json:"document_type"`
+	Email        pgtype.Text        `json:"email"`
+	Phone        pgtype.Text        `json:"phone"`
+	PostalCode   pgtype.Text        `json:"postal_code"`
+	Street       pgtype.Text        `json:"street"`
+	StreetNumber pgtype.Text        `json:"street_number"`
+	City         pgtype.Text        `json:"city"`
+	State        pgtype.Text        `json:"state"`
+	Active       bool               `json:"active"`
+	DeletedAt    pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Tenant struct {

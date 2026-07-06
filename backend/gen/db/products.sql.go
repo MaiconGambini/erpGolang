@@ -33,9 +33,9 @@ func (q *Queries) CountProducts(ctx context.Context, arg CountProductsParams) (i
 }
 
 const createProduct = `-- name: CreateProduct :one
-INSERT INTO products (tenant_id, name, sku, price, stock, active)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, tenant_id, name, sku, price, stock, active, deleted_at, created_at, updated_at
+INSERT INTO products (tenant_id, name, sku, price, stock, unit, barcode, active)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, tenant_id, name, sku, price, stock, unit, barcode, active, deleted_at, created_at, updated_at
 `
 
 type CreateProductParams struct {
@@ -44,6 +44,8 @@ type CreateProductParams struct {
 	Sku      string         `json:"sku"`
 	Price    pgtype.Numeric `json:"price"`
 	Stock    int32          `json:"stock"`
+	Unit     string         `json:"unit"`
+	Barcode  pgtype.Text    `json:"barcode"`
 	Active   bool           `json:"active"`
 }
 
@@ -54,6 +56,8 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (P
 		arg.Sku,
 		arg.Price,
 		arg.Stock,
+		arg.Unit,
+		arg.Barcode,
 		arg.Active,
 	)
 	var i Product
@@ -64,6 +68,8 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (P
 		&i.Sku,
 		&i.Price,
 		&i.Stock,
+		&i.Unit,
+		&i.Barcode,
 		&i.Active,
 		&i.DeletedAt,
 		&i.CreatedAt,
@@ -73,7 +79,7 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (P
 }
 
 const getProduct = `-- name: GetProduct :one
-SELECT id, tenant_id, name, sku, price, stock, active, deleted_at, created_at, updated_at
+SELECT id, tenant_id, name, sku, price, stock, unit, barcode, active, deleted_at, created_at, updated_at
 FROM products
 WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 `
@@ -93,6 +99,8 @@ func (q *Queries) GetProduct(ctx context.Context, arg GetProductParams) (Product
 		&i.Sku,
 		&i.Price,
 		&i.Stock,
+		&i.Unit,
+		&i.Barcode,
 		&i.Active,
 		&i.DeletedAt,
 		&i.CreatedAt,
@@ -102,7 +110,7 @@ func (q *Queries) GetProduct(ctx context.Context, arg GetProductParams) (Product
 }
 
 const listLowStockProducts = `-- name: ListLowStockProducts :many
-SELECT id, tenant_id, name, sku, price, stock, active, deleted_at, created_at, updated_at
+SELECT id, tenant_id, name, sku, price, stock, unit, barcode, active, deleted_at, created_at, updated_at
 FROM products
 WHERE tenant_id = $1 AND deleted_at IS NULL AND active = true
   AND stock <= $2
@@ -111,9 +119,9 @@ LIMIT $3
 `
 
 type ListLowStockProductsParams struct {
-	TenantID    pgtype.UUID `json:"tenant_id"`
-	Threshold   int32       `json:"threshold"`
-	LimitCount  int32       `json:"limit_count"`
+	TenantID   pgtype.UUID `json:"tenant_id"`
+	Threshold  int32       `json:"threshold"`
+	LimitCount int32       `json:"limit_count"`
 }
 
 func (q *Queries) ListLowStockProducts(ctx context.Context, arg ListLowStockProductsParams) ([]Product, error) {
@@ -132,6 +140,8 @@ func (q *Queries) ListLowStockProducts(ctx context.Context, arg ListLowStockProd
 			&i.Sku,
 			&i.Price,
 			&i.Stock,
+			&i.Unit,
+			&i.Barcode,
 			&i.Active,
 			&i.DeletedAt,
 			&i.CreatedAt,
@@ -148,7 +158,7 @@ func (q *Queries) ListLowStockProducts(ctx context.Context, arg ListLowStockProd
 }
 
 const listProducts = `-- name: ListProducts :many
-SELECT id, tenant_id, name, sku, price, stock, active, deleted_at, created_at, updated_at
+SELECT id, tenant_id, name, sku, price, stock, unit, barcode, active, deleted_at, created_at, updated_at
 FROM products
 WHERE tenant_id = $1 AND deleted_at IS NULL
   AND ($2::text = '' OR name ILIKE '%' || $2 || '%' OR sku ILIKE '%' || $2 || '%')
@@ -187,6 +197,8 @@ func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]P
 			&i.Sku,
 			&i.Price,
 			&i.Stock,
+			&i.Unit,
+			&i.Barcode,
 			&i.Active,
 			&i.DeletedAt,
 			&i.CreatedAt,
@@ -206,7 +218,7 @@ const softDeleteProduct = `-- name: SoftDeleteProduct :one
 UPDATE products
 SET deleted_at = now(), updated_at = now()
 WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
-RETURNING id, tenant_id, name, sku, price, stock, active, deleted_at, created_at, updated_at
+RETURNING id, tenant_id, name, sku, price, stock, unit, barcode, active, deleted_at, created_at, updated_at
 `
 
 type SoftDeleteProductParams struct {
@@ -224,6 +236,8 @@ func (q *Queries) SoftDeleteProduct(ctx context.Context, arg SoftDeleteProductPa
 		&i.Sku,
 		&i.Price,
 		&i.Stock,
+		&i.Unit,
+		&i.Barcode,
 		&i.Active,
 		&i.DeletedAt,
 		&i.CreatedAt,
@@ -234,30 +248,41 @@ func (q *Queries) SoftDeleteProduct(ctx context.Context, arg SoftDeleteProductPa
 
 const updateProduct = `-- name: UpdateProduct :one
 UPDATE products
-SET name = $3, sku = $4, price = $5, stock = $6, active = $7, updated_at = now()
-WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
-RETURNING id, tenant_id, name, sku, price, stock, active, deleted_at, created_at, updated_at
+SET name = $1,
+    sku = $2,
+    price = $3,
+    stock = $4,
+    unit = $5,
+    barcode = $6,
+    active = $7,
+    updated_at = now()
+WHERE id = $8 AND tenant_id = $9 AND deleted_at IS NULL
+RETURNING id, tenant_id, name, sku, price, stock, unit, barcode, active, deleted_at, created_at, updated_at
 `
 
 type UpdateProductParams struct {
-	ID       pgtype.UUID    `json:"id"`
-	TenantID pgtype.UUID    `json:"tenant_id"`
 	Name     string         `json:"name"`
 	Sku      string         `json:"sku"`
 	Price    pgtype.Numeric `json:"price"`
 	Stock    int32          `json:"stock"`
+	Unit     string         `json:"unit"`
+	Barcode  pgtype.Text    `json:"barcode"`
 	Active   bool           `json:"active"`
+	ID       pgtype.UUID    `json:"id"`
+	TenantID pgtype.UUID    `json:"tenant_id"`
 }
 
 func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (Product, error) {
 	row := q.db.QueryRow(ctx, updateProduct,
-		arg.ID,
-		arg.TenantID,
 		arg.Name,
 		arg.Sku,
 		arg.Price,
 		arg.Stock,
+		arg.Unit,
+		arg.Barcode,
 		arg.Active,
+		arg.ID,
+		arg.TenantID,
 	)
 	var i Product
 	err := row.Scan(
@@ -267,6 +292,8 @@ func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (P
 		&i.Sku,
 		&i.Price,
 		&i.Stock,
+		&i.Unit,
+		&i.Barcode,
 		&i.Active,
 		&i.DeletedAt,
 		&i.CreatedAt,

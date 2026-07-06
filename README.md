@@ -118,28 +118,36 @@ Seed tenants: `acme` / `beta` — password `admin123` (`go run ./cmd/seed`).
 - Node.js 20+
 - Docker (for Postgres + Redis)
 
-### 1. Environment
+### Local run (5 steps)
+
+`docker-compose.dev.yml` publishes **Postgres on host port `5434`** and **Redis on `6381`** (avoids conflicts with `5432`/`6379` or `goerp-prod`). Full backend runbook: [`backend/docs/LOCAL_DEV.md`](backend/docs/LOCAL_DEV.md).
+
+**1. Environment**
 
 ```bash
 cp backend/.env.example backend/.env
-# Set JWT_ACCESS_SECRET, JWT_REFRESH_SECRET, DATABASE_URL, REDIS_URL
+# Set JWT_ACCESS_SECRET and JWT_REFRESH_SECRET (non-default values)
 ```
 
-### 2. Infrastructure
+Default connection strings in `.env.example` already target `5434` / `6381`. On Windows, prefer `127.0.0.1` over `localhost` in `DATABASE_URL` to avoid IPv6 hitting a different Postgres instance.
+
+**2. Infrastructure**
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d
 ```
 
-### 3. Database
+Verify compose file (read-only): `docker compose -f docker-compose.dev.yml config`
+
+**3. Database**
 
 ```bash
 cd backend
 go run ./cmd/migrate
-go run ./cmd/seed
+go run ./cmd/seed    # tenants acme/beta — password admin123
 ```
 
-### 4. Backend
+**4. Backend**
 
 ```bash
 cd backend
@@ -149,7 +157,7 @@ make dev          # hot reload via air
 
 API: `http://localhost:8080` — health: `/healthz`, `/readyz`
 
-### 5. Frontend
+**5. Frontend**
 
 ```bash
 cd frontend
@@ -157,9 +165,9 @@ npm install
 npm run dev
 ```
 
-App: `http://localhost:5173` (proxies `/api` → backend)
+App: `http://localhost:5173` (proxies `/api` → backend). Login: `acme` / `admin@acme.com` / `admin123`.
 
-### 6. Tests
+### Tests
 
 ```bash
 # Backend
@@ -169,8 +177,8 @@ go test -tags=integration ./internal/customers/... ./internal/dashboard/...
 # Frontend
 cd frontend && npm run typecheck && npm run test:unit
 
-# E2E (API + DB running)
-cd frontend && npx playwright test
+# E2E (docker-compose.dev.yml up; Playwright starts API on :8080 and Vite on :5174)
+cd frontend && npx playwright test   # 15 tests; defaults DATABASE_URL :5434, REDIS_URL :6381
 
 # Full gate
 make validate
@@ -227,8 +235,8 @@ docker-compose.dev.yml   Local PostgreSQL and Redis
 - [x] CRUD pages: customers, products, suppliers, sales
 - [x] Dashboard with live KPIs + cache invalidation
 - [x] Loading, empty, error states
-- [x] Playwright E2E suite
-- [ ] Sale draft edit UI (backend PATCH exists)
+- [x] Playwright E2E suite (15 tests)
+- [x] Sale draft edit UI (`EditSaleDialog` + PATCH)
 - [ ] Drill-down links from dashboard metrics
 
 ### DevOps

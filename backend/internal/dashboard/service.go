@@ -22,13 +22,33 @@ type SummaryParams struct {
 	Threshold int32
 }
 
-func (s *Service) Summary(ctx context.Context, params SummaryParams) (db.GetDashboardSummaryRow, error) {
+type SummaryDTO struct {
+	ActiveCustomers       int64  `json:"activeCustomers"`
+	NewCustomers30d       int64  `json:"newCustomers30d"`
+	DraftSales            int64  `json:"draftSales"`
+	LowStockAlerts        int64  `json:"lowStockAlerts"`
+	ConfirmedSalesCount   int64  `json:"confirmedSalesCount"`
+	ConfirmedSalesTotal   string `json:"confirmedSalesTotal"`
+}
+
+func (s *Service) Summary(ctx context.Context, params SummaryParams) (SummaryDTO, error) {
 	tid, err := uuid.Parse(params.TenantID)
 	if err != nil {
-		return db.GetDashboardSummaryRow{}, err
+		return SummaryDTO{}, err
 	}
-	return s.queries.GetDashboardSummary(ctx, db.GetDashboardSummaryParams{
+	row, err := s.queries.GetDashboardSummary(ctx, db.GetDashboardSummaryParams{
 		TenantID:  pgutil.UUIDToPg(tid),
 		Threshold: params.Threshold,
 	})
+	if err != nil {
+		return SummaryDTO{}, err
+	}
+	return SummaryDTO{
+		ActiveCustomers:     row.ActiveCustomers,
+		NewCustomers30d:     row.NewCustomers30d,
+		DraftSales:          row.DraftSales,
+		LowStockAlerts:      row.LowStockAlerts,
+		ConfirmedSalesCount: row.ConfirmedSalesCount,
+		ConfirmedSalesTotal: pgutil.NumericToString(row.ConfirmedSalesTotal),
+	}, nil
 }

@@ -1,17 +1,5 @@
-import { z } from 'zod'
+export { partyFormSchema as customerFormSchema } from '@/shared/lib/party-schema'
+export type { PartyFormValues as CustomerFormValues } from '@/shared/lib/party-schema'
 
-const optionalEmail = z.union([z.string().email(), z.literal('')]).optional()
-const optionalText = z.string().optional()
-
-export const customerFormSchema = z.object({
-  name: z.string().min(1, 'Nome é obrigatório'),
-  document: optionalText,
-  email: optionalEmail,
-  phone: optionalText,
-  active: z.boolean().default(true),
-})
-
-export type CustomerFormValues = z.infer<typeof customerFormSchema>
-
-export const createCustomerSchema = customerFormSchema
-export const editCustomerSchema = customerFormSchema
+export { partyFormSchema as createCustomerSchema } from '@/shared/lib/party-schema'
+export { partyFormSchema as editCustomerSchema } from '@/shared/lib/party-schema'

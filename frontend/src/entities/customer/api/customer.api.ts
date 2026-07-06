@@ -1,6 +1,7 @@
 import { apiClient } from '@/shared/api/client'
 import type { Paginated } from '@/shared/api/types'
 import type { Customer } from '../model/types'
+import type { DocumentType } from '@/shared/lib/document'
 
 export interface ListCustomersParams {
   limit?: number
@@ -22,8 +23,14 @@ export async function getCustomer(id: string): Promise<Customer> {
 export interface CustomerInput {
   name: string
   document?: string
+  documentType?: DocumentType
   email?: string
   phone?: string
+  postalCode?: string
+  street?: string
+  streetNumber?: string
+  city?: string
+  state?: string
   active: boolean
 }
 

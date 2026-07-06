@@ -1,6 +1,10 @@
 import { defineConfig, devices } from '@playwright/test'
 
 const e2ePort = 5174
+const databaseUrl =
+  process.env.DATABASE_URL ??
+  'postgres://goerp:goerp@localhost:5434/goerp?sslmode=disable'
+const redisUrl = process.env.REDIS_URL ?? 'redis://localhost:6381/0'
 
 export default defineConfig({
   testDir: './e2e',
@@ -25,8 +29,8 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
       env: {
-        DATABASE_URL: 'postgres://goerp:goerp@localhost:5432/goerp?sslmode=disable',
-        REDIS_URL: 'redis://localhost:6379/0',
+        DATABASE_URL: databaseUrl,
+        REDIS_URL: redisUrl,
         JWT_ACCESS_SECRET: 'test-access',
         JWT_REFRESH_SECRET: 'test-refresh',
       },

@@ -20,6 +20,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import type { Product } from '@/entities/product/model/types'
+import { getApiErrorMessage } from '@/shared/api/errors'
 import { useDeleteProduct } from '../model/use-delete-product'
 
 const props = defineProps<{ visible: boolean; product: Product | null }>()
@@ -36,7 +37,9 @@ function onConfirm() {
   if (!props.product) return
   mutate(props.product.id, {
     onSuccess: () => emit('close'),
-    onError: () => { submitError.value = 'Não foi possível excluir o produto' },
+    onError: (error) => {
+      submitError.value = getApiErrorMessage(error, 'Não foi possível excluir o produto')
+    },
   })
 }
 </script>

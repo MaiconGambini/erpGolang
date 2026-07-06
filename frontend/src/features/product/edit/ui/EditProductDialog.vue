@@ -23,6 +23,15 @@
           <input v-model.number="form.stock" type="number" min="0" step="1" />
           <span v-if="errors.stock" class="field-error">{{ errors.stock }}</span>
         </label>
+        <label>
+          Unidade
+          <input v-model="form.unit" placeholder="UN" />
+          <span v-if="errors.unit" class="field-error">{{ errors.unit }}</span>
+        </label>
+        <label>
+          Código de barras
+          <input v-model="form.barcode" />
+        </label>
         <label class="checkbox">
           <input v-model="form.active" type="checkbox" />
           Ativo
@@ -42,6 +51,7 @@ import { reactive, ref, watch } from 'vue'
 import type { Product } from '@/entities/product/model/types'
 import { editProductSchema } from '../model/schema'
 import { useUpdateProduct } from '../model/use-edit-product'
+import { getApiErrorMessage } from '@/shared/api/errors'
 import AppButton from '@/shared/ui/AppButton.vue'
 
 const props = defineProps<{ visible: boolean; product: Product | null }>()
@@ -52,6 +62,8 @@ const form = reactive({
   sku: '',
   price: '',
   stock: 0,
+  unit: 'UN',
+  barcode: '',
   active: true,
 })
 const errors = ref<Record<string, string>>({})
@@ -67,6 +79,8 @@ watch(
       form.sku = product.sku
       form.price = product.price
       form.stock = product.stock
+      form.unit = product.unit || 'UN'
+      form.barcode = product.barcode ?? ''
       form.active = product.active
       errors.value = {}
       submitError.value = ''
@@ -88,6 +102,8 @@ function onSubmit() {
     sku: form.sku,
     price: normalizePrice(form.price),
     stock: form.stock,
+    unit: form.unit || 'UN',
+    barcode: form.barcode || undefined,
     active: form.active,
   })
   if (!parsed.success) {
@@ -105,12 +121,16 @@ function onSubmit() {
         sku: parsed.data.sku,
         price: normalizePrice(parsed.data.price),
         stock: parsed.data.stock,
+        unit: parsed.data.unit,
+        barcode: parsed.data.barcode,
         active: parsed.data.active,
       },
     },
     {
       onSuccess: () => emit('close'),
-      onError: () => { submitError.value = 'Não foi possível atualizar o produto' },
+      onError: (error) => {
+        submitError.value = getApiErrorMessage(error, 'Não foi possível atualizar o produto')
+      },
     },
   )
 }

@@ -8,6 +8,7 @@ describe('productFormSchema', () => {
       sku: 'CAM-001',
       price: '29.90',
       stock: 10,
+      unit: 'UN',
       active: true,
     })
     expect(result.success).toBe(true)

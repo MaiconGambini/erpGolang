@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/MaiconGambini/erpGolang/backend/gen/db"
 	sharedaudit "github.com/MaiconGambini/erpGolang/backend/internal/shared/audit"
@@ -26,14 +27,16 @@ func NewService(pool *pgxpool.Pool, audit sharedaudit.Recorder) *Service {
 }
 
 type ProductDTO struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Sku       string `json:"sku"`
-	Price     string `json:"price"`
-	Stock     int    `json:"stock"`
-	Active    bool   `json:"active"`
-	CreatedAt string `json:"createdAt"`
-	UpdatedAt string `json:"updatedAt"`
+	ID        string  `json:"id"`
+	Name      string  `json:"name"`
+	Sku       string  `json:"sku"`
+	Price     string  `json:"price"`
+	Stock     int     `json:"stock"`
+	Unit      string  `json:"unit"`
+	Barcode   *string `json:"barcode,omitempty"`
+	Active    bool    `json:"active"`
+	CreatedAt string  `json:"createdAt"`
+	UpdatedAt string  `json:"updatedAt"`
 }
 
 type ListParams struct {
@@ -123,11 +126,13 @@ func (s *Service) Get(ctx context.Context, tenantID, id string) (ProductDTO, err
 }
 
 type CreateInput struct {
-	Name   string
-	Sku    string
-	Price  string
-	Stock  int
-	Active bool
+	Name    string
+	Sku     string
+	Price   string
+	Stock   int
+	Unit    string
+	Barcode *string
+	Active  bool
 }
 
 func (s *Service) Create(ctx context.Context, tenantID, actorID string, in CreateInput) (ProductDTO, error) {
@@ -145,6 +150,8 @@ func (s *Service) Create(ctx context.Context, tenantID, actorID string, in Creat
 		Sku:      in.Sku,
 		Price:    price,
 		Stock:    int32(in.Stock),
+		Unit:     normalizeUnit(in.Unit),
+		Barcode:  pgutil.TextFromPtr(in.Barcode),
 		Active:   in.Active,
 	})
 	if err != nil {
@@ -182,6 +189,8 @@ func (s *Service) Update(ctx context.Context, tenantID, actorID, id string, in C
 		Sku:      in.Sku,
 		Price:    price,
 		Stock:    int32(in.Stock),
+		Unit:     normalizeUnit(in.Unit),
+		Barcode:  pgutil.TextFromPtr(in.Barcode),
 		Active:   in.Active,
 	})
 	if err != nil {
@@ -242,7 +251,18 @@ func validateInput(in CreateInput) error {
 	if in.Stock < 0 {
 		return errValidation
 	}
+	if strings.TrimSpace(normalizeUnit(in.Unit)) == "" {
+		return errValidation
+	}
 	return nil
+}
+
+func normalizeUnit(unit string) string {
+	u := strings.TrimSpace(unit)
+	if u == "" {
+		return "UN"
+	}
+	return strings.ToUpper(u)
 }
 
 func isUniqueViolation(err error) bool {
@@ -261,6 +281,8 @@ func toDTO(row db.Product) ProductDTO {
 		Sku:       row.Sku,
 		Price:     pgutil.NumericToString(row.Price),
 		Stock:     int(row.Stock),
+		Unit:      row.Unit,
+		Barcode:   pgutil.TextPtr(row.Barcode),
 		Active:    row.Active,
 		CreatedAt: row.CreatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt: row.UpdatedAt.Time.Format("2006-01-02T15:04:05Z07:00"),

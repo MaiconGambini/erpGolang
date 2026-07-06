@@ -4,6 +4,8 @@ export interface Product {
   sku: string
   price: string
   stock: number
+  unit: string
+  barcode?: string
   active: boolean
   createdAt: string
   updatedAt?: string

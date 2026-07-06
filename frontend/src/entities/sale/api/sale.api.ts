@@ -35,6 +35,11 @@ export async function createSale(data: SaleInput): Promise<Sale> {
   return response.data.data
 }
 
+export async function updateSale(id: string, data: SaleInput): Promise<Sale> {
+  const response = await apiClient.patch<{ data: Sale }>(`/sales/${id}`, data)
+  return response.data.data
+}
+
 export async function confirmSale(id: string): Promise<Sale> {
   const response = await apiClient.post<{ data: Sale }>(`/sales/${id}/confirm`)
   return response.data.data

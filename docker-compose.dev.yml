@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: goerp
       POSTGRES_PASSWORD: goerp
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - goerp_postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -20,7 +20,7 @@ services:
     image: redis:7
     container_name: goerp-redis
     ports:
-      - "6379:6379"
+      - "6381:6379"
     volumes:
       - goerp_redis_data:/data
     healthcheck:

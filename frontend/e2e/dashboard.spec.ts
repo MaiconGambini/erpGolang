@@ -21,12 +21,15 @@ test.describe('dashboard', () => {
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
 
     const kpiValues = page.locator('section.grid article strong:not(.skeleton)')
-    await expect(kpiValues).toHaveCount(4)
+    await expect(kpiValues).toHaveCount(6)
 
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 5; i++) {
       const text = await kpiValues.nth(i).textContent()
       expect(text).toMatch(/^\d[\d.]*$/)
     }
+
+    const revenueText = await kpiValues.nth(5).textContent()
+    expect(revenueText).toMatch(/^R\$\s/)
   })
 
   test('active customers increments after create', async ({ page }) => {

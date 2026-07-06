@@ -60,11 +60,17 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 type supplierRequest struct {
-	Name     string  `json:"name"`
-	Document *string `json:"document"`
-	Email    *string `json:"email"`
-	Phone    *string `json:"phone"`
-	Active   bool    `json:"active"`
+	Name         string  `json:"name"`
+	Document     *string `json:"document"`
+	DocumentType *string `json:"documentType"`
+	Email        *string `json:"email"`
+	Phone        *string `json:"phone"`
+	PostalCode   *string `json:"postalCode"`
+	Street       *string `json:"street"`
+	StreetNumber *string `json:"streetNumber"`
+	City         *string `json:"city"`
+	State        *string `json:"state"`
+	Active       bool    `json:"active"`
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
@@ -75,11 +81,9 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, "INVALID_JSON", "invalid request body", http.StatusBadRequest)
 		return
 	}
-	item, err := h.svc.Create(r.Context(), tenantID, user.ID, CreateInput{
-		Name: req.Name, Document: req.Document, Email: req.Email, Phone: req.Phone, Active: req.Active,
-	})
+	item, err := h.svc.Create(r.Context(), tenantID, user.ID, requestToInput(req))
 	if err != nil {
-		httpx.Error(w, "INTERNAL_ERROR", "failed to create supplier", http.StatusInternalServerError)
+		writeServiceError(w, err, "failed to create supplier")
 		return
 	}
 	httpx.JSON(w, http.StatusCreated, item)
@@ -94,15 +98,9 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, "INVALID_JSON", "invalid request body", http.StatusBadRequest)
 		return
 	}
-	item, err := h.svc.Update(r.Context(), tenantID, user.ID, id, CreateInput{
-		Name: req.Name, Document: req.Document, Email: req.Email, Phone: req.Phone, Active: req.Active,
-	})
+	item, err := h.svc.Update(r.Context(), tenantID, user.ID, id, requestToInput(req))
 	if err != nil {
-		if errors.Is(err, errNotFound) {
-			httpx.Error(w, "NOT_FOUND", "supplier not found", http.StatusNotFound)
-			return
-		}
-		httpx.Error(w, "INTERNAL_ERROR", "failed to update supplier", http.StatusInternalServerError)
+		writeServiceError(w, err, "failed to update supplier")
 		return
 	}
 	httpx.JSON(w, http.StatusOK, item)
@@ -121,4 +119,33 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func requestToInput(req supplierRequest) CreateInput {
+	return CreateInput{
+		Name:         req.Name,
+		Document:     req.Document,
+		DocumentType: req.DocumentType,
+		Email:        req.Email,
+		Phone:        req.Phone,
+		PostalCode:   req.PostalCode,
+		Street:       req.Street,
+		StreetNumber: req.StreetNumber,
+		City:         req.City,
+		State:        req.State,
+		Active:       req.Active,
+	}
+}
+
+func writeServiceError(w http.ResponseWriter, err error, fallback string) {
+	switch {
+	case errors.Is(err, errNotFound):
+		httpx.Error(w, "NOT_FOUND", "supplier not found", http.StatusNotFound)
+	case errors.Is(err, errValidation):
+		httpx.Error(w, "VALIDATION_ERROR", "invalid supplier data", http.StatusBadRequest)
+	case errors.Is(err, errDuplicateDocument):
+		httpx.Error(w, "DUPLICATE_DOCUMENT", "document already exists for this tenant", http.StatusConflict)
+	default:
+		httpx.Error(w, "INTERNAL_ERROR", fallback, http.StatusInternalServerError)
+	}
 }

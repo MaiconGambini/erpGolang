@@ -92,7 +92,8 @@ func TestDashboardSummaryTenantScoped(t *testing.T) {
 }
 
 type summaryCounts struct {
-	ActiveCustomers int64 `json:"active_customers"`
+	ActiveCustomers     int64 `json:"activeCustomers"`
+	ConfirmedSalesCount int64 `json:"confirmedSalesCount"`
 }
 
 func fetchSummary(t *testing.T, baseURL, token string) summaryCounts {

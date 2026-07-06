@@ -32,6 +32,8 @@ export interface ProductInput {
   sku: string
   price: string
   stock: number
+  unit?: string
+  barcode?: string
   active: boolean
 }
 

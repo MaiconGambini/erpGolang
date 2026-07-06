@@ -35,10 +35,13 @@ SET customer_id = @customer_id, total = @total, notes = @notes, updated_at = now
 WHERE id = @id AND tenant_id = @tenant_id AND status = 'draft' AND deleted_at IS NULL
 RETURNING id, tenant_id, customer_id, status, total, notes, deleted_at, created_at, updated_at;
 
+-- name: CountSalesByCustomer :one
+SELECT count(*)::bigint FROM sales WHERE tenant_id = @tenant_id AND customer_id = @customer_id AND deleted_at IS NULL;
+
 -- name: UpdateSaleStatus :one
 UPDATE sales
 SET status = @status, updated_at = now()
-WHERE id = @id AND tenant_id = @tenant_id AND deleted_at IS NULL
+WHERE id = @id AND tenant_id = @tenant_id AND status = @from_status AND deleted_at IS NULL
 RETURNING id, tenant_id, customer_id, status, total, notes, deleted_at, created_at, updated_at;
 
 -- name: SoftDeleteSale :one

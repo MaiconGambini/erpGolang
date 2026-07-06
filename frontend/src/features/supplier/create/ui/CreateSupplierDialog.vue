@@ -8,10 +8,7 @@
           <input v-model="form.name" required />
           <span v-if="errors.name" class="field-error">{{ errors.name }}</span>
         </label>
-        <label>
-          Documento
-          <input v-model="form.document" />
-        </label>
+        <PartyFormFields v-model="partyForm" :errors="errors" />
         <label>
           E-mail
           <input v-model="form.email" type="email" />
@@ -36,33 +33,60 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { createSupplierSchema } from '../model/schema'
 import { useCreateSupplier } from '../model/use-create-supplier'
 import AppButton from '@/shared/ui/AppButton.vue'
+import PartyFormFields, { type PartyFormState } from '@/shared/ui/PartyFormFields.vue'
+import { toPartyInput } from '@/shared/lib/party-payload'
 
 const props = defineProps<{ visible: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
+const emptyPartyFields = (): PartyFormState => ({
+  documentType: '',
+  document: '',
+  postalCode: '',
+  street: '',
+  streetNumber: '',
+  city: '',
+  state: '',
+})
+
 const form = reactive({
   name: '',
-  document: '',
   email: '',
   phone: '',
   active: true,
+  ...emptyPartyFields(),
 })
 const errors = ref<Record<string, string>>({})
 const submitError = ref('')
+
+const partyForm = computed({
+  get: (): PartyFormState => ({
+    documentType: form.documentType,
+    document: form.document,
+    postalCode: form.postalCode,
+    street: form.street,
+    streetNumber: form.streetNumber,
+    city: form.city,
+    state: form.state,
+  }),
+  set: (value: PartyFormState) => {
+    Object.assign(form, value)
+  },
+})
 
 const { mutate, isPending } = useCreateSupplier()
 
 watch(() => props.visible, (open) => {
   if (open) {
     form.name = ''
-    form.document = ''
     form.email = ''
     form.phone = ''
     form.active = true
+    Object.assign(form, emptyPartyFields())
     errors.value = {}
     submitError.value = ''
   }
@@ -71,13 +95,7 @@ watch(() => props.visible, (open) => {
 function onSubmit() {
   errors.value = {}
   submitError.value = ''
-  const parsed = createSupplierSchema.safeParse({
-    name: form.name,
-    document: form.document || undefined,
-    email: form.email || undefined,
-    phone: form.phone || undefined,
-    active: form.active,
-  })
+  const parsed = createSupplierSchema.safeParse(form)
   if (!parsed.success) {
     for (const issue of parsed.error.issues) {
       const key = String(issue.path[0] ?? '_')
@@ -85,19 +103,10 @@ function onSubmit() {
     }
     return
   }
-  mutate(
-    {
-      name: parsed.data.name,
-      document: parsed.data.document,
-      email: parsed.data.email,
-      phone: parsed.data.phone,
-      active: parsed.data.active,
-    },
-    {
-      onSuccess: () => emit('close'),
-      onError: () => { submitError.value = 'Não foi possível criar o fornecedor' },
-    },
-  )
+  mutate(toPartyInput(parsed.data), {
+    onSuccess: () => emit('close'),
+    onError: () => { submitError.value = 'Não foi possível criar o fornecedor' },
+  })
 }
 </script>
 
@@ -116,7 +125,9 @@ function onSubmit() {
   background: var(--color-surface);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-soft);
-  max-width: 480px;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
   padding: 24px;
   width: 100%;
 }

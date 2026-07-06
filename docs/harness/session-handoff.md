@@ -1,8 +1,23 @@
 # Session Handoff
 
+## P0 Status — **complete** (2026-07-06)
+
+Local documentation and MVP polish items are done:
+
+| Item | Evidence |
+|------|----------|
+| README 5-step local run | Ports **5434** / **6381**; link to `backend/docs/LOCAL_DEV.md` |
+| Docs ↔ compose ↔ `.env.example` | `docker compose -f docker-compose.dev.yml config` — exit 0 |
+| Sale draft edit UI | `EditSaleDialog.vue`, `use-edit-sale.ts`, table/detail edit actions |
+| Playwright port fix | `playwright.config.ts` — `5434`/`6381` defaults, Vite E2E on **5174** |
+| Full E2E | `npx playwright test` — **15/15** passed |
+
 ## Verified Now
 
 ```text
+$ docker compose -f docker-compose.dev.yml config
+exit 0 (postgres published 5434, redis published 6381)
+
 $ cd backend && go test ./...
 ok  auth, customers, dashboard, products, sales, suppliers, shared/inventory
 exit 0
@@ -11,9 +26,12 @@ $ cd frontend && npm run typecheck && npm run test:unit
 vue-tsc — exit 0
 vitest run — 12 passed (4 files)
 exit 0
+
+$ cd frontend && npx playwright test
+15 passed
 ```
 
-## Thermo-Nuclear Remediation (this session)
+## Thermo-Nuclear Remediation (prior session)
 
 **Code quality**
 - `backend/internal/shared/inventory/threshold.go` — shared `DefaultLowStockThreshold` + `NormalizeLowStockThreshold`
@@ -35,11 +53,18 @@ exit 0
 ## Blockers
 
 - **Fly CD:** set GitHub secret `FLY_API_TOKEN` + Fly app secrets (`DATABASE_URL`, `REDIS_URL`, `JWT_*`, `ALLOWED_ORIGINS`)
-- **Full E2E:** run `npx playwright test` with API + seeded DB (15 tests expected)
 - **Commits:** deferred until user approves
+
+## P1 — Next items
+
+1. **Fly CD** — configure `FLY_API_TOKEN` and verify deploy workflow on `main`
+2. **Dashboard drill-down** — link KPI metrics to filtered list routes (`README` frontend task)
+3. **OpenAPI contract** — `contract/` spec for `/api/v1` (`README` backend task)
+4. **Users CRUD** — deferred module; routes behind admin role
+5. **Sales race** — concurrent confirm guard (see `backend/docs/SALES_TRANSACTIONS.md`)
+6. **Ops** — VPS deploy automation in CI; backup/restore drill documented and tested
 
 ## Next Best Step
 
-1. Run full Playwright suite locally
-2. Add `FLY_API_TOKEN` to GitHub secrets
-3. Commit using suggested groups in `docs/harness/sprint-contract.md`
+1. Pick first P1 item (Fly CD or dashboard drill-down)
+2. Commit P0 doc + harness updates when user approves (suggested groups in `docs/harness/sprint-contract.md`)

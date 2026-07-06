@@ -8,10 +8,7 @@
           <input v-model="form.name" required />
           <span v-if="errors.name" class="field-error">{{ errors.name }}</span>
         </label>
-        <label>
-          Documento
-          <input v-model="form.document" />
-        </label>
+        <PartyFormFields v-model="partyForm" :errors="errors" />
         <label>
           E-mail
           <input v-model="form.email" type="email" />
@@ -36,24 +33,47 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import type { Supplier } from '@/entities/supplier/model/types'
 import { editSupplierSchema } from '../model/schema'
 import { useUpdateSupplier } from '../model/use-edit-supplier'
 import AppButton from '@/shared/ui/AppButton.vue'
+import PartyFormFields, { type PartyFormState } from '@/shared/ui/PartyFormFields.vue'
+import { toPartyInput } from '@/shared/lib/party-payload'
 
 const props = defineProps<{ visible: boolean; supplier: Supplier | null }>()
 const emit = defineEmits<{ close: [] }>()
 
 const form = reactive({
   name: '',
-  document: '',
   email: '',
   phone: '',
   active: true,
+  documentType: '' as PartyFormState['documentType'],
+  document: '',
+  postalCode: '',
+  street: '',
+  streetNumber: '',
+  city: '',
+  state: '',
 })
 const errors = ref<Record<string, string>>({})
 const submitError = ref('')
+
+const partyForm = computed({
+  get: (): PartyFormState => ({
+    documentType: form.documentType,
+    document: form.document,
+    postalCode: form.postalCode,
+    street: form.street,
+    streetNumber: form.streetNumber,
+    city: form.city,
+    state: form.state,
+  }),
+  set: (value: PartyFormState) => {
+    Object.assign(form, value)
+  },
+})
 
 const { mutate, isPending } = useUpdateSupplier()
 
@@ -62,9 +82,15 @@ watch(
   ([open, supplier]) => {
     if (open && supplier) {
       form.name = supplier.name
+      form.documentType = supplier.documentType ?? ''
       form.document = supplier.document ?? ''
       form.email = supplier.email ?? ''
       form.phone = supplier.phone ?? ''
+      form.postalCode = supplier.postalCode ?? ''
+      form.street = supplier.street ?? ''
+      form.streetNumber = supplier.streetNumber ?? ''
+      form.city = supplier.city ?? ''
+      form.state = supplier.state ?? ''
       form.active = supplier.active
       errors.value = {}
       submitError.value = ''
@@ -77,13 +103,7 @@ function onSubmit() {
   if (!props.supplier) return
   errors.value = {}
   submitError.value = ''
-  const parsed = editSupplierSchema.safeParse({
-    name: form.name,
-    document: form.document || undefined,
-    email: form.email || undefined,
-    phone: form.phone || undefined,
-    active: form.active,
-  })
+  const parsed = editSupplierSchema.safeParse(form)
   if (!parsed.success) {
     for (const issue of parsed.error.issues) {
       const key = String(issue.path[0] ?? '_')
@@ -94,13 +114,7 @@ function onSubmit() {
   mutate(
     {
       id: props.supplier.id,
-      data: {
-        name: parsed.data.name,
-        document: parsed.data.document,
-        email: parsed.data.email,
-        phone: parsed.data.phone,
-        active: parsed.data.active,
-      },
+      data: toPartyInput(parsed.data),
     },
     {
       onSuccess: () => emit('close'),
@@ -125,7 +139,9 @@ function onSubmit() {
   background: var(--color-surface);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-soft);
-  max-width: 480px;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
   padding: 24px;
   width: 100%;
 }

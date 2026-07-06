@@ -52,6 +52,7 @@ import { listCustomers } from '@/entities/customer/api/customer.api'
 import { listProducts } from '@/entities/product/api/product.api'
 import { createSaleSchema } from '@/entities/sale/model/schemas'
 import { useCreateSale } from '../model/use-create-sale'
+import { getApiErrorMessage } from '@/shared/api/errors'
 import AppButton from '@/shared/ui/AppButton.vue'
 
 const props = defineProps<{ visible: boolean }>()
@@ -122,7 +123,9 @@ function onSubmit() {
     },
     {
       onSuccess: () => emit('close'),
-      onError: () => { submitError.value = 'Não foi possível criar a venda' },
+      onError: (error) => {
+        submitError.value = getApiErrorMessage(error, 'Não foi possível criar a venda')
+      },
     },
   )
 }

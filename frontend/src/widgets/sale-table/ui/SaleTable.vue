@@ -9,6 +9,7 @@
         <option value="cancelled">Cancelada</option>
       </select>
     </div>
+    <p v-if="actionError" class="state error">{{ actionError }}</p>
     <p v-if="isLoading" class="state">Carregando...</p>
     <p v-else-if="isError" class="state error">Erro ao carregar vendas</p>
     <p v-else-if="!sales.length" class="state">Nenhuma venda encontrada</p>
@@ -31,6 +32,15 @@
           </td>
           <td>{{ formatDate(sale.createdAt) }}</td>
           <td class="actions-col">
+            <button type="button" class="link" @click="emit('view', sale.id)">Ver</button>
+            <button
+              v-if="sale.status === 'draft'"
+              type="button"
+              class="link"
+              @click="emit('edit', sale.id)"
+            >
+              Editar
+            </button>
             <button
               v-if="sale.status === 'draft'"
               type="button"
@@ -79,6 +89,12 @@ import { computed, ref, watch } from 'vue'
 import type { SaleStatus } from '@/entities/sale/model/types'
 import { useCancelSale, useConfirmSale, useDeleteSale } from '@/features/sale/actions/model/use-sale-actions'
 import { useListSales } from '@/features/sale/list/model/use-list-sales'
+import { getApiErrorMessage } from '@/shared/api/errors'
+
+const emit = defineEmits<{
+  view: [id: string]
+  edit: [id: string]
+}>()
 
 const searchInput = ref('')
 const searchModel = ref('')
@@ -86,6 +102,7 @@ const statusFilter = ref<SaleStatus | ''>('')
 const limit = ref(20)
 const offset = ref(0)
 const pendingId = ref('')
+const actionError = ref('')
 
 let searchDebounce: ReturnType<typeof setTimeout> | undefined
 
@@ -135,18 +152,38 @@ function statusLabel(status: SaleStatus) {
 }
 
 function onConfirm(id: string) {
+  actionError.value = ''
   pendingId.value = id
-  confirmMutate(id, { onSettled: () => { pendingId.value = '' } })
+  confirmMutate(id, {
+    onSettled: () => { pendingId.value = '' },
+    onError: (error) => {
+      actionError.value = getApiErrorMessage(error, 'Não foi possível confirmar a venda')
+    },
+  })
 }
 
 function onCancel(id: string) {
+  if (!confirm('Deseja cancelar esta venda confirmada? O estoque será revertido.')) return
+  actionError.value = ''
   pendingId.value = id
-  cancelMutate(id, { onSettled: () => { pendingId.value = '' } })
+  cancelMutate(id, {
+    onSettled: () => { pendingId.value = '' },
+    onError: (error) => {
+      actionError.value = getApiErrorMessage(error, 'Não foi possível cancelar a venda')
+    },
+  })
 }
 
 function onDelete(id: string) {
+  if (!confirm('Deseja excluir este rascunho de venda?')) return
+  actionError.value = ''
   pendingId.value = id
-  deleteMutate(id, { onSettled: () => { pendingId.value = '' } })
+  deleteMutate(id, {
+    onSettled: () => { pendingId.value = '' },
+    onError: (error) => {
+      actionError.value = getApiErrorMessage(error, 'Não foi possível excluir a venda')
+    },
+  })
 }
 </script>
 
@@ -190,7 +227,7 @@ td {
 
 .actions-col {
   white-space: nowrap;
-  width: 200px;
+  width: 280px;
 }
 
 .link {

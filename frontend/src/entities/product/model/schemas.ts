@@ -11,6 +11,8 @@ export const productFormSchema = z.object({
       return !Number.isNaN(n) && n > 0
     }, 'Preço deve ser maior que zero'),
   stock: z.coerce.number().int().min(0, 'Estoque não pode ser negativo'),
+  unit: z.string().min(1, 'Unidade é obrigatória').default('UN'),
+  barcode: z.string().optional(),
   active: z.boolean().default(true),
 })
 

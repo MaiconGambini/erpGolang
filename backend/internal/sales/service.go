@@ -324,8 +324,11 @@ func (s *Service) Confirm(ctx context.Context, tenantID, actorID, id string) (Sa
 	}
 
 	if _, err := qtx.UpdateSaleStatus(ctx, db.UpdateSaleStatusParams{
-		ID: pgSale, TenantID: pgTenant, Status: "confirmed",
+		ID: pgSale, TenantID: pgTenant, Status: "confirmed", FromStatus: "draft",
 	}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return SaleDTO{}, errInvalidStatus
+		}
 		return SaleDTO{}, err
 	}
 
@@ -380,8 +383,11 @@ func (s *Service) Cancel(ctx context.Context, tenantID, actorID, id string) (Sal
 	}
 
 	if _, err := qtx.UpdateSaleStatus(ctx, db.UpdateSaleStatusParams{
-		ID: pgSale, TenantID: pgTenant, Status: "cancelled",
+		ID: pgSale, TenantID: pgTenant, Status: "cancelled", FromStatus: "confirmed",
 	}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return SaleDTO{}, errInvalidStatus
+		}
 		return SaleDTO{}, err
 	}
 

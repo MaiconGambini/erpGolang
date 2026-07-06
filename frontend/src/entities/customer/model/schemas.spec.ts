@@ -5,6 +5,7 @@ describe('customerFormSchema', () => {
   it('accepts valid customer', () => {
     const result = customerFormSchema.safeParse({
       name: 'Padaria Central',
+      documentType: 'cnpj',
       document: '12345678000199',
       email: 'contato@padaria.com',
       phone: '11999999999',
