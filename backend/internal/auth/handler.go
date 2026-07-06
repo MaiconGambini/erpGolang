@@ -13,12 +13,13 @@ import (
 const refreshCookieName = "refresh_token"
 
 type Handler struct {
-	svc        *Service
-	bcryptCost int
+	svc           *Service
+	bcryptCost    int
+	secureCookies bool
 }
 
-func NewHandler(svc *Service, bcryptCost int) *Handler {
-	return &Handler{svc: svc, bcryptCost: bcryptCost}
+func NewHandler(svc *Service, bcryptCost int, secureCookies bool) *Handler {
+	return &Handler{svc: svc, bcryptCost: bcryptCost, secureCookies: secureCookies}
 }
 
 type loginRequest struct {
@@ -42,7 +43,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, "UNAUTHORIZED", "invalid credentials", http.StatusUnauthorized)
 		return
 	}
-	setRefreshCookie(w, result.RefreshToken)
+	h.setRefreshCookie(w, result.RefreshToken)
 	httpx.JSON(w, http.StatusOK, map[string]any{
 		"accessToken": result.AccessToken,
 		"user": map[string]string{
@@ -63,11 +64,11 @@ func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 	}
 	result, err := h.svc.Refresh(r.Context(), token.Value)
 	if err != nil {
-		clearRefreshCookie(w)
+		h.clearRefreshCookie(w)
 		httpx.Error(w, "UNAUTHORIZED", "invalid refresh token", http.StatusUnauthorized)
 		return
 	}
-	setRefreshCookie(w, result.RefreshToken)
+	h.setRefreshCookie(w, result.RefreshToken)
 	httpx.JSON(w, http.StatusOK, map[string]any{
 		"accessToken": result.AccessToken,
 		"user": map[string]string{
@@ -85,7 +86,7 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	if token != nil {
 		_ = h.svc.Logout(r.Context(), token.Value)
 	}
-	clearRefreshCookie(w)
+	h.clearRefreshCookie(w)
 	httpx.JSON(w, http.StatusOK, map[string]string{"status": "logged_out"})
 }
 
@@ -108,24 +109,25 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, profile)
 }
 
-func setRefreshCookie(w http.ResponseWriter, token string) {
+func (h *Handler) setRefreshCookie(w http.ResponseWriter, token string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     refreshCookieName,
 		Value:    token,
 		Path:     "/api/v1/auth",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   false,
+		Secure:   h.secureCookies,
 		MaxAge:   int((30 * 24 * time.Hour).Seconds()),
 	})
 }
 
-func clearRefreshCookie(w http.ResponseWriter) {
+func (h *Handler) clearRefreshCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     refreshCookieName,
 		Value:    "",
 		Path:     "/api/v1/auth",
 		HttpOnly: true,
+		Secure:   h.secureCookies,
 		MaxAge:   -1,
 	})
 }

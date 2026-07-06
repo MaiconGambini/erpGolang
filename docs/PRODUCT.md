@@ -19,6 +19,20 @@ goERP is a modular, tenant-aware ERP for small and medium businesses. MVP 1 deli
 - Modular monolith: new business module in ~1–2 days using customers template
 - FSD frontend with consistent UX patterns (`docs/UX_PATTERNS.md`)
 
+## MVP 1 Module List
+
+| Module | Status |
+|---|---|
+| auth | Implemented |
+| customers | Implemented |
+| products | Implemented |
+| suppliers | Implemented |
+| sales | Implemented |
+| dashboard | Implemented |
+| users CRUD | Deferred |
+
+See `docs/ARCHITECTURE.md`, `docs/CI_CD.md`, and `DEPLOYMENT.md` for technical detail.
+
 ## Non-Goals (current scope)
 
 - Tenant self-registration

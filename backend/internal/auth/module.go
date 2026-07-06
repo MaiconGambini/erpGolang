@@ -15,7 +15,7 @@ func (Module) Name() string { return "auth" }
 
 func (Module) Register(r chi.Router, deps app.Deps) {
 	svc := NewService(deps.DB, deps.Config)
-	handler := NewHandler(svc, deps.Config.BcryptCost)
+	handler := NewHandler(svc, deps.Config.BcryptCost, !deps.Config.IsDevelopment())
 
 	r.Route("/auth", func(auth chi.Router) {
 		auth.With(middleware.LoginRateLimit(deps.Redis, 5, 15*time.Minute)).Post("/login", handler.Login)

@@ -17,15 +17,18 @@ Go backend
 
 ## Backend Architecture
 
-The backend is a modular monolith. Each module owns its domain model, DTOs, handlers, service, repository interface, and sqlc adapter.
+The backend is a modular monolith. Each module owns handlers, service, and sqlc queries. DTOs live in `service.go`. sqlc is the persistence layer (no separate repository interface files in MVP).
 
 MVP modules:
 
 - `tenants`: tenant identity, slug, status.
-- `users`: users, roles, tenant membership.
+- `users`: users, roles, tenant membership (CRUD routes deferred).
 - `auth`: login, refresh, logout, access token verification.
-- `customers`: first business CRUD and reference module.
-- `audit`: append-only write event log.
+- `customers`: reference CRUD module.
+- `products`, `suppliers`: catalog CRUD modules.
+- `sales`: draft/confirm/cancel workflow with stock effects.
+- `dashboard`: tenant KPI aggregate read model.
+- `audit`: append-only write event log (no HTTP routes).
 
 Dependency direction:
 
@@ -38,8 +41,8 @@ Rules:
 - Domain files do not import HTTP, SQL, logging, or framework packages.
 - Handlers translate HTTP and call services.
 - Services enforce business rules and tenant isolation.
-- Repositories hide sqlc-generated code behind module-owned interfaces.
-- Modules do not query each other's tables directly.
+- Services map sqlc rows to DTOs in `service.go`.
+- Modules do not import each other's packages; cross-table reads/writes happen via sqlc inside service transactions (sales, dashboard).
 - Shared packages contain infrastructure-neutral helpers only.
 
 ## Frontend Architecture

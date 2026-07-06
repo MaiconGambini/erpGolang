@@ -4,7 +4,9 @@ on:
   push:
     paths:
       - 'backend/**'
+      - 'fly.toml'
       - '.github/workflows/backend.yml'
+      - '.github/workflows/deploy.yml'
   pull_request:
     paths:
       - 'backend/**'
