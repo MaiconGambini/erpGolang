@@ -8,6 +8,14 @@
         <option value="confirmed">Confirmada</option>
         <option value="cancelled">Cancelada</option>
       </select>
+      <label class="date-field">
+        De
+        <input v-model="fromDate" type="date" />
+      </label>
+      <label class="date-field">
+        Até
+        <input v-model="toDate" type="date" />
+      </label>
     </div>
     <p v-if="actionError" class="state error">{{ actionError }}</p>
     <p v-if="isLoading" class="state">Carregando...</p>
@@ -20,8 +28,7 @@
           <th>Total</th>
           <th>Status</th>
           <th>Data</th>
-          <th class="actions-col">Ações</th>
-        </tr>
+          <th class="actions-col">Ações</th>        </tr>
       </thead>
       <tbody>
         <tr v-for="sale in sales" :key="sale.id">
@@ -34,7 +41,7 @@
           <td class="actions-col">
             <button type="button" class="link" @click="emit('view', sale.id)">Ver</button>
             <button
-              v-if="sale.status === 'draft'"
+              v-if="sale.status === 'draft' && canWriteUser"
               type="button"
               class="link"
               @click="emit('edit', sale.id)"
@@ -42,7 +49,7 @@
               Editar
             </button>
             <button
-              v-if="sale.status === 'draft'"
+              v-if="sale.status === 'draft' && canWriteUser"
               type="button"
               class="link"
               :disabled="pendingId === sale.id"
@@ -51,7 +58,7 @@
               Confirmar
             </button>
             <button
-              v-if="sale.status === 'confirmed'"
+              v-if="sale.status === 'confirmed' && canManageSalesUser"
               type="button"
               class="link danger"
               :disabled="pendingId === sale.id"
@@ -60,7 +67,7 @@
               Cancelar
             </button>
             <button
-              v-if="sale.status === 'draft'"
+              v-if="sale.status === 'draft' && canManageSalesUser"
               type="button"
               class="link danger"
               :disabled="pendingId === sale.id"
@@ -86,10 +93,18 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import type { SaleStatus } from '@/entities/sale/model/types'
+import { useSessionStore } from '@/entities/session/model/session.store'
 import { useCancelSale, useConfirmSale, useDeleteSale } from '@/features/sale/actions/model/use-sale-actions'
 import { useListSales } from '@/features/sale/list/model/use-list-sales'
 import { getApiErrorMessage } from '@/shared/api/errors'
+import { canManageSales, canWrite } from '@/shared/lib/roles'
+
+const route = useRoute()
+const session = useSessionStore()
+const canWriteUser = computed(() => canWrite(session.user?.role))
+const canManageSalesUser = computed(() => canManageSales(session.user?.role))
 
 const emit = defineEmits<{
   view: [id: string]
@@ -98,13 +113,23 @@ const emit = defineEmits<{
 
 const searchInput = ref('')
 const searchModel = ref('')
-const statusFilter = ref<SaleStatus | ''>('')
+const statusFilter = ref<SaleStatus | ''>((route.query.status as SaleStatus) || '')
+const fromDate = ref('')
+const toDate = ref('')
 const limit = ref(20)
 const offset = ref(0)
 const pendingId = ref('')
 const actionError = ref('')
 
 let searchDebounce: ReturnType<typeof setTimeout> | undefined
+
+watch(
+  () => route.query.status,
+  (value) => {
+    statusFilter.value = (typeof value === 'string' ? value : '') as SaleStatus | ''
+    offset.value = 0
+  },
+)
 
 watch(searchInput, (value) => {
   if (searchDebounce) clearTimeout(searchDebounce)
@@ -115,12 +140,17 @@ watch(searchInput, (value) => {
 })
 
 watch(statusFilter, () => { offset.value = 0 })
+watch([fromDate, toDate], () => { offset.value = 0 })
 
 const statusRef = computed(() => (statusFilter.value || undefined) as SaleStatus | undefined)
+const fromRef = computed(() => fromDate.value || undefined)
+const toRef = computed(() => toDate.value || undefined)
 
 const { data, isLoading, isError } = useListSales({
   search: searchModel,
   status: statusRef,
+  from: fromRef,
+  to: toRef,
   limit,
   offset,
 })
@@ -185,6 +215,15 @@ function onDelete(id: string) {
     },
   })
 }
+
+const exportParams = computed(() => ({
+  search: searchModel.value || undefined,
+  status: statusFilter.value || undefined,
+  from: fromDate.value || undefined,
+  to: toDate.value || undefined,
+}))
+
+defineExpose({ exportParams })
 </script>
 
 <style scoped>
@@ -197,8 +236,21 @@ function onDelete(id: string) {
 
 .toolbar {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   padding: 12px;
+}
+
+.date-field {
+  color: var(--color-text-secondary);
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  gap: 4px;
+}
+
+.date-field input {
+  min-width: 140px;
 }
 
 input,

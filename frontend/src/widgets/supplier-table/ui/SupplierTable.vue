@@ -13,7 +13,7 @@
           <th>Documento</th>
           <th>E-mail</th>
           <th>Status</th>
-          <th class="actions-col">Ações</th>
+          <th v-if="showActions" class="actions-col">Ações</th>
         </tr>
       </thead>
       <tbody>
@@ -26,9 +26,16 @@
               {{ supplier.active ? 'Ativo' : 'Inativo' }}
             </span>
           </td>
-          <td class="actions-col">
-            <button type="button" class="link" @click="emit('edit', supplier)">Editar</button>
-            <button type="button" class="link danger" @click="emit('delete', supplier)">Excluir</button>
+          <td v-if="showActions" class="actions-col">
+            <button v-if="canWriteUser" type="button" class="link" @click="emit('edit', supplier)">Editar</button>
+            <button
+              v-if="canDeleteUser"
+              type="button"
+              class="link danger"
+              @click="emit('delete', supplier)"
+            >
+              Excluir
+            </button>
           </td>
         </tr>
       </tbody>
@@ -48,7 +55,14 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import type { Supplier } from '@/entities/supplier/model/types'
+import { useSessionStore } from '@/entities/session/model/session.store'
 import { useListSuppliers } from '@/features/supplier/list/model/use-list-suppliers'
+import { canDelete, canWrite } from '@/shared/lib/roles'
+
+const session = useSessionStore()
+const canWriteUser = computed(() => canWrite(session.user?.role))
+const canDeleteUser = computed(() => canDelete(session.user?.role))
+const showActions = computed(() => canWriteUser.value || canDeleteUser.value)
 
 const emit = defineEmits<{
   edit: [supplier: Supplier]

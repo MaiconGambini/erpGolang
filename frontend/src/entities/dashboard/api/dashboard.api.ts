@@ -3,22 +3,22 @@ import { apiClient } from '@/shared/api/client'
 import type { DashboardSummary } from '../model/types'
 
 interface DashboardSummaryApi {
-  active_customers: number
-  new_customers_30d: number
-  draft_sales: number
-  low_stock_alerts: number
-  confirmed_sales_count?: number
-  confirmed_sales_total?: string | number
+  activeCustomers: number
+  newCustomers30d: number
+  draftSales: number
+  lowStockAlerts: number
+  confirmedSalesCount?: number
+  confirmedSalesTotal?: string | number
 }
 
 function mapDashboardSummary(raw: DashboardSummaryApi): DashboardSummary {
   return {
-    activeCustomers: raw.active_customers,
-    newCustomers30d: raw.new_customers_30d,
-    draftSales: raw.draft_sales,
-    lowStockAlerts: raw.low_stock_alerts,
-    confirmedSalesCount: raw.confirmed_sales_count ?? 0,
-    confirmedSalesTotal: String(raw.confirmed_sales_total ?? '0'),
+    activeCustomers: raw.activeCustomers,
+    newCustomers30d: raw.newCustomers30d,
+    draftSales: raw.draftSales,
+    lowStockAlerts: raw.lowStockAlerts,
+    confirmedSalesCount: raw.confirmedSalesCount ?? 0,
+    confirmedSalesTotal: String(raw.confirmedSalesTotal ?? '0'),
   }
 }
 

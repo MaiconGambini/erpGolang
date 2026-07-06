@@ -16,7 +16,7 @@
           <th>Preço</th>
           <th>Estoque</th>
           <th>Status</th>
-          <th class="actions-col">Ações</th>
+          <th v-if="showActions" class="actions-col">Ações</th>
         </tr>
       </thead>
       <tbody>
@@ -32,9 +32,16 @@
               {{ product.active ? 'Ativo' : 'Inativo' }}
             </span>
           </td>
-          <td class="actions-col">
-            <button type="button" class="link" @click="emit('edit', product)">Editar</button>
-            <button type="button" class="link danger" @click="emit('delete', product)">Excluir</button>
+          <td v-if="showActions" class="actions-col">
+            <button v-if="canWriteUser" type="button" class="link" @click="emit('edit', product)">Editar</button>
+            <button
+              v-if="canDeleteUser"
+              type="button"
+              class="link danger"
+              @click="emit('delete', product)"
+            >
+              Excluir
+            </button>
           </td>
         </tr>
       </tbody>
@@ -54,9 +61,16 @@
 <script setup lang="ts">
 import { computed, ref, toRef, watch } from 'vue'
 import type { Product } from '@/entities/product/model/types'
+import { useSessionStore } from '@/entities/session/model/session.store'
 import { useListLowStockProducts } from '@/features/product/list/model/use-list-low-stock-products'
 import { useListProducts } from '@/features/product/list/model/use-list-products'
 import { LOW_STOCK_THRESHOLD } from '@/shared/config/inventory'
+import { canDelete, canWrite } from '@/shared/lib/roles'
+
+const session = useSessionStore()
+const canWriteUser = computed(() => canWrite(session.user?.role))
+const canDeleteUser = computed(() => canDelete(session.user?.role))
+const showActions = computed(() => canWriteUser.value || canDeleteUser.value)
 
 const props = defineProps<{ lowStock?: boolean }>()
 

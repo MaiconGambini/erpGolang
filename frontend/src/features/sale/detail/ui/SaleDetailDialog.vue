@@ -58,7 +58,10 @@
 
         <div class="actions">
           <button type="button" class="secondary" @click="emit('close')">Fechar</button>
-          <AppButton v-if="sale.status === 'draft'" @click="emit('edit', sale.id)">
+          <button type="button" class="secondary" :disabled="downloadingPdf" @click="onDownloadPdf">
+            Baixar PDF
+          </button>
+          <AppButton v-if="sale.status === 'draft' && canWriteUser" @click="emit('edit', sale.id)">
             Editar
           </AppButton>
         </div>
@@ -68,14 +71,22 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { getSale } from '@/entities/sale/api/sale.api'
+import { downloadSalePdf } from '@/entities/reports/api/reports.api'
 import type { SaleStatus } from '@/entities/sale/model/types'
+import { useSessionStore } from '@/entities/session/model/session.store'
 import AppButton from '@/shared/ui/AppButton.vue'
+import { downloadBlob } from '@/shared/lib/download'
+import { canWrite } from '@/shared/lib/roles'
 
 const props = defineProps<{ visible: boolean; saleId: string | null }>()
 const emit = defineEmits<{ close: []; edit: [id: string] }>()
+
+const session = useSessionStore()
+const canWriteUser = computed(() => canWrite(session.user?.role))
+const downloadingPdf = ref(false)
 
 const { data: sale, isLoading, isError } = useQuery({
   queryKey: computed(() => ['sale', props.saleId]),
@@ -106,6 +117,17 @@ function statusLabel(status: SaleStatus) {
     cancelled: 'Cancelada',
   }
   return map[status]
+}
+
+async function onDownloadPdf() {
+  if (!props.saleId) return
+  downloadingPdf.value = true
+  try {
+    const blob = await downloadSalePdf(props.saleId)
+    downloadBlob(`venda-${props.saleId}.pdf`, blob)
+  } finally {
+    downloadingPdf.value = false
+  }
 }
 </script>
 
@@ -247,5 +269,10 @@ dd {
   cursor: pointer;
   font: inherit;
   padding: 8px 14px;
+}
+
+.secondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 </style>

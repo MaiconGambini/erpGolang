@@ -7,7 +7,7 @@ const optionalText = z.string().optional()
 export const partyFormSchema = z
   .object({
     name: z.string().min(1, 'Nome é obrigatório'),
-    documentType: z.enum(['cpf', 'cnpj']).optional(),
+    documentType: z.union([z.enum(['cpf', 'cnpj']), z.literal('')]).optional(),
     document: optionalText,
     email: optionalEmail,
     phone: optionalText,

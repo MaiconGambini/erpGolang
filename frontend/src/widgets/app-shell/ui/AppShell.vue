@@ -7,6 +7,10 @@
       <RouterLink to="/products">Produtos</RouterLink>
       <RouterLink to="/suppliers">Fornecedores</RouterLink>
       <RouterLink to="/sales">Vendas</RouterLink>
+      <template v-if="isAdminUser">
+        <RouterLink to="/users">Usuários</RouterLink>
+        <RouterLink to="/audit">Auditoria</RouterLink>
+      </template>
     </aside>
     <div class="main">
       <header class="topbar">
@@ -21,10 +25,13 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useSessionStore } from '@/entities/session/model/session.store'
+import { isAdmin } from '@/shared/lib/roles'
 import LogoutButton from '@/features/auth/logout/ui/LogoutButton.vue'
 
 const session = useSessionStore()
+const isAdminUser = computed(() => isAdmin(session.user?.role))
 </script>
 
 <style scoped>

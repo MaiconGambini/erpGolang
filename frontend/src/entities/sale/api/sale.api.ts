@@ -7,6 +7,8 @@ export interface ListSalesParams {
   offset?: number
   search?: string
   status?: SaleStatus
+  from?: string
+  to?: string
 }
 
 export interface SaleItemInput {
