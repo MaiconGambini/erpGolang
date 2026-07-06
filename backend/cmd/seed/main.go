@@ -36,6 +36,34 @@ func main() {
 			fmt.Printf("seeded tenant %s (%s)\n", t.slug, t.email)
 		}
 	}
+	if err := seedViewer(ctx, queries, "acme", "viewer@acme.com", "admin123", "Acme Viewer", cfg.BcryptCost); err != nil {
+		log.Printf("seed viewer: %v", err)
+	} else {
+		fmt.Println("seeded viewer@acme.com (role viewer)")
+	}
+}
+
+func seedViewer(ctx context.Context, q *db.Queries, slug, email, password, userName string, cost int) error {
+	tenant, err := q.GetTenantBySlug(ctx, slug)
+	if err != nil {
+		return err
+	}
+	_, err = q.GetUserByEmail(ctx, email)
+	if err == nil {
+		return fmt.Errorf("already exists")
+	}
+	hash, err := auth.HashPassword(password, cost)
+	if err != nil {
+		return err
+	}
+	_, err = q.CreateUser(ctx, db.CreateUserParams{
+		TenantID:     tenant.ID,
+		Email:        email,
+		PasswordHash: hash,
+		Name:         userName,
+		Role:         "viewer",
+	})
+	return err
 }
 
 func seedTenant(ctx context.Context, q *db.Queries, slug, name, email, password, userName string, cost int) error {

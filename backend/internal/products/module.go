@@ -17,15 +17,17 @@ func (Module) Register(r chi.Router, deps app.Deps) {
 	svc := NewService(deps.DB, deps.Audit)
 	handler := NewHandler(svc)
 	authSvc := auth.NewService(deps.DB, deps.Config)
+	read := middleware.RequireRole("admin", "manager", "operator", "viewer")
+	write := middleware.RequireRole("admin", "manager", "operator")
 
 	r.Route("/products", func(products chi.Router) {
 		products.Use(middleware.AuthJWT(authSvc.JWT()))
 		products.Use(middleware.TenantScope)
-		products.Get("/low-stock", handler.LowStock)
-		products.Get("/", handler.List)
-		products.Post("/", handler.Create)
-		products.Get("/{id}", handler.Get)
-		products.Patch("/{id}", handler.Update)
-		products.Delete("/{id}", handler.Delete)
+		products.With(read).Get("/low-stock", handler.LowStock)
+		products.With(read).Get("/", handler.List)
+		products.With(read).Get("/{id}", handler.Get)
+		products.With(write).Post("/", handler.Create)
+		products.With(write).Patch("/{id}", handler.Update)
+		products.With(middleware.RequireRole("admin")).Delete("/{id}", handler.Delete)
 	})
 }
