@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#f1f5f9"/>
+  <rect x="340" y="120" width="600" height="480" rx="12" fill="#fff" stroke="#e2e8f0"/>
+  <text x="640" y="200" text-anchor="middle" font-family="system-ui,sans-serif" font-size="28" font-weight="700" fill="#0f172a">goERP Login</text>
+  <rect x="420" y="240" width="440" height="40" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+  <rect x="420" y="300" width="440" height="40" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+  <rect x="420" y="360" width="440" height="40" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+  <rect x="420" y="430" width="440" height="44" rx="6" fill="#2563eb"/>
+  <text x="640" y="458" text-anchor="middle" font-family="system-ui,sans-serif" font-size="16" fill="#fff">Entrar</text>
+</svg>

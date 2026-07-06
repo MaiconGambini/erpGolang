@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#f1f5f9"/>
+  <rect x="360" y="80" width="560" height="560" rx="12" fill="#fff" stroke="#e2e8f0"/>
+  <text x="640" y="130" text-anchor="middle" font-family="system-ui,sans-serif" font-size="22" font-weight="700">Novo cliente</text>
+  <text x="400" y="180" font-family="system-ui,sans-serif" font-size="12" fill="#64748b">Nome, CPF/CNPJ, endereco (BR fields)</text>
+  <rect x="400" y="200" width="480" height="36" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+  <rect x="400" y="260" width="220" height="36" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+  <rect x="640" y="260" width="240" height="36" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+  <rect x="400" y="320" width="480" height="36" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+</svg>
