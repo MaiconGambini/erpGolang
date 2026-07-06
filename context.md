@@ -1,3 +1,5 @@
+> **Note:** This file is a Portuguese brainstorming checklist from early project planning. **Canonical documentation** lives in [`docs/README.md`](docs/README.md) and [`README.md`](README.md). Portfolio 8.5+ scope (RBAC, reporting, users, audit) is implemented — see `docs/PRODUCT.md` and `docs/ROLES.md`.
+
 Contexto técnico que costuma faltar
 1. Glossário do domínio
 Antes de qualquer coisa: um arquivo GLOSSARY.md com os termos do seu ERP. O que é "cliente" pra você? Pessoa física, jurídica, ambos? "Pedido" é orçamento, venda confirmada, ou os dois com status diferente? IA inventa semântica quando você não fixa. 1-2 páginas resolvem.

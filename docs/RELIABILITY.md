@@ -22,9 +22,9 @@ make validate
 |---|---|---|
 | Compose | `docker compose -f docker-compose.dev.yml config` | exit 0 |
 | Backend | `cd backend && go test ./... && go build ./...` | exit 0 |
-| Backend integration | `go test -tags=integration ./internal/customers/... ./internal/dashboard/...` | exit 0 (needs `DATABASE_URL` + seed) |
+| Backend integration | `go test -tags=integration ./internal/customers/... ./internal/dashboard/... ./internal/sales/... ./internal/reports/...` | exit 0 (needs `DATABASE_URL` + seed) |
 | Frontend | `cd frontend && npm run typecheck && npm run test:unit && npm run build` | exit 0 |
-| E2E | `cd frontend && npx playwright test` | all green (dockerized API + DB) |
+| E2E | `cd frontend && npx playwright test` | 20 tests green (dockerized API + DB) |
 
 ## Error Handling
 

@@ -58,11 +58,10 @@ $ cd frontend && npx playwright test
 ## P1 — Next items
 
 1. **Fly CD** — configure `FLY_API_TOKEN` and verify deploy workflow on `main`
-2. **Dashboard drill-down** — link KPI metrics to filtered list routes (`README` frontend task)
-3. **OpenAPI contract** — `contract/` spec for `/api/v1` (`README` backend task)
-4. **Users CRUD** — deferred module; routes behind admin role
-5. **Sales race** — concurrent confirm guard (see `backend/docs/SALES_TRANSACTIONS.md`)
-6. **Ops** — VPS deploy automation in CI; backup/restore drill documented and tested
+2. **OpenAPI contract** — `contract/` spec for `/api/v1` (`README` backend task)
+3. **Sales race** — concurrent confirm guard (see `backend/docs/SALES_TRANSACTIONS.md`)
+4. **Ops** — VPS deploy automation in CI; backup/restore drill documented and tested
+5. **Portfolio polish** — replace `docs/images/*.svg` with real screenshots; user mutation audit trail
 
 ## Next Best Step
 

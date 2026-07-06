@@ -1,53 +1,58 @@
 # Architecture
 
-goERP is a modular monolith with a REST API and a Vue frontend. The architecture optimizes for fast MVP delivery, strong tenant isolation, and a clear path to deployment without microservices.
+goERP is a modular monolith with a REST API and a Vue frontend. The architecture optimizes for fast MVP delivery, strong tenant isolation, RBAC, portfolio-grade reporting, and a clear path to deployment without microservices.
 
 ## System Shape
 
 ```text
 Browser
-  -> Frontend app
+  -> Vue 3 (FSD) + Vue Query + Pinia
   -> REST API (/api/v1)
-  -> Go backend
+  -> Go modular monolith (chi)
   -> PostgreSQL 16
 
 Go backend
-  -> Redis 7
+  -> Redis 7 (login rate limit)
 ```
 
 ## Backend Architecture
 
-The backend is a modular monolith. Each module owns handlers, service, and sqlc queries. DTOs live in `service.go`. sqlc is the persistence layer (no separate repository interface files in MVP).
+The backend is a modular monolith. Each module owns handlers, service, and sqlc queries. DTOs live in `service.go`. sqlc is the persistence layer.
 
-MVP modules:
+### Modules
 
-- `tenants`: tenant identity, slug, status.
-- `users`: users, roles, tenant membership (CRUD routes deferred).
-- `auth`: login, refresh, logout, access token verification.
-- `customers`: reference CRUD module.
-- `products`, `suppliers`: catalog CRUD modules.
-- `sales`: draft/confirm/cancel workflow with stock effects.
-- `dashboard`: tenant KPI aggregate read model.
-- `audit`: append-only write event log (no HTTP routes).
+| Module | Type | Notes |
+|---|---|---|
+| `auth` | Identity | Login, refresh, logout, JWT |
+| `tenants` | Identity | Current tenant info |
+| `users` | Admin | List/get/update users (admin only) |
+| `customers` | Entity CRUD | Reference module |
+| `products` | Entity CRUD | Stock, low-stock list |
+| `suppliers` | Entity CRUD | Party fields (BR) |
+| `sales` | Workflow | Draft → confirm → cancel; stock effects |
+| `dashboard` | Read-model | 6 KPI aggregates |
+| `reports` | Read-model | Charts, PDF exports |
+| `audit` | Cross-cutting | Write recorder + admin list API |
 
 Dependency direction:
 
 ```text
-cmd/api -> internal/app -> modules -> shared/platform
+cmd/api -> internal/app -> modules -> shared/platform -> gen/db
 ```
 
-Rules:
+### Rules
 
-- Domain files do not import HTTP, SQL, logging, or framework packages.
 - Handlers translate HTTP and call services.
 - Services enforce business rules and tenant isolation.
 - Services map sqlc rows to DTOs in `service.go`.
-- Modules do not import each other's packages; cross-table reads/writes happen via sqlc inside service transactions (sales, dashboard).
-- Shared packages contain infrastructure-neutral helpers only.
+- Modules do not import each other's Go packages.
+- Cross-table reads/writes happen via sqlc inside service transactions (sales) or dedicated read-model modules (dashboard, reports).
+- RBAC via `RequireRole` middleware per `docs/ROLES.md`.
+- Shared packages contain infrastructure-neutral helpers (`export`, `inventory`, `httpx`).
 
 ## Frontend Architecture
 
-The frontend follows Feature-Sliced Design:
+Feature-Sliced Design:
 
 ```text
 app -> processes -> pages -> widgets -> features -> entities -> shared
@@ -56,26 +61,48 @@ app -> processes -> pages -> widgets -> features -> entities -> shared
 Rules:
 
 - Imports only flow downward.
-- `entities` mirror API DTOs and basic API calls.
-- `features` own user actions such as create customer or login.
-- `widgets` compose features into reusable page sections.
-- `pages` compose widgets and features; they should contain little business logic.
-- `shared` contains API client, UI primitives, formatting, and config.
+- `entities` mirror API DTOs and API clients.
+- `features` own user actions (create customer, confirm sale).
+- `widgets` compose tables and page sections.
+- `pages` compose widgets; minimal business logic.
+- `shared` contains API client, roles, export helpers, UI primitives.
+
+Role helpers live in `shared/lib/roles.ts`; admin routes use `requireAdmin` guard.
 
 ## Tenant Isolation
 
-Every tenant-owned table has `tenant_id`. Every tenant-owned query filters by `tenant_id`. Tenant IDs come from authenticated context, never from request bodies.
+Every tenant-owned table has `tenant_id`. Every tenant-owned query filters by `tenant_id`. Tenant IDs come from JWT claims, never from request bodies.
 
-Cross-tenant access must return `404` for tenant-owned resources unless an explicit system-admin capability is introduced later.
+Cross-tenant access returns `404` for tenant-owned resources.
+
+## Reporting
+
+| Capability | Location |
+|---|---|
+| CSV list export | `?format=csv` on customers, products, suppliers, sales |
+| Dashboard KPIs | `GET /dashboard/summary` |
+| Charts | `GET /reports/sales-by-day`, `/top-products` |
+| PDF | `GET /reports/sales/{id}/pdf`, `/reports/sales-summary.pdf` |
+
+Financial aggregates (revenue charts, period PDF, confirmed-sales KPIs) are limited to admin and manager roles.
 
 ## Persistence
 
-PostgreSQL is the source of truth. Redis is allowed for cache, rate limiting, session coordination, and temporary state, but not as the only store for domain records.
+PostgreSQL is the source of truth. Redis is used for login rate limiting and `/readyz` — not as domain record storage.
 
 ## Deployment Path
 
-Phase 1: local machine with Docker Compose for PostgreSQL and Redis.
+1. **Local** — Docker Compose (`docker-compose.dev.yml`, Postgres `5434`, Redis `6381`).
+2. **VPS** — Docker Compose + Caddy (`deploy/`).
+3. **Fly.io** — API CD gated on Backend CI (`fly.toml`).
 
-Phase 2: VPS with Docker Compose and Caddy.
+See `DEPLOYMENT.md` and `docs/CI_CD.md`.
 
-Phase 3: AWS EC2 + RDS. ECS/Fargate is deferred until operational needs justify it.
+## Related Docs
+
+| Doc | Purpose |
+|---|---|
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Detailed subsystems, routes, API envelope |
+| [`docs/ROLES.md`](docs/ROLES.md) | RBAC matrix |
+| [`backend/docs/ARCHITECTURE.md`](backend/docs/ARCHITECTURE.md) | Backend route inventory |
+| [`docs/README.md`](docs/README.md) | Full documentation index |

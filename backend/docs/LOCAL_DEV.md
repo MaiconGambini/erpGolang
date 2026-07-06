@@ -46,7 +46,7 @@ Atlas (`atlas.hcl`) is optional and intended for schema diffing only — do not 
 ```bash
 cd backend
 go run ./cmd/migrate
-go run ./cmd/seed    # tenants acme/beta, password admin123
+go run ./cmd/seed    # tenants acme/beta; admin@*.com + viewer@acme.com / admin123
 make sqlc            # after query changes
 ```
 
@@ -73,16 +73,18 @@ npm run dev          # http://localhost:5173, proxies /api → :8080
 ```bash
 cd backend
 go test ./...
-go test -tags=integration ./internal/customers/... ./internal/dashboard/...
+go test -tags=integration ./internal/customers/... ./internal/dashboard/... ./internal/sales/... ./internal/reports/...
 
 cd frontend
 npm run typecheck
 npm run test:unit
-npx playwright test  # 15 tests; Vite on :5174; defaults :5434/:6381 (see playwright.config.ts)
+npx playwright test  # 20 tests; Vite on :5174; defaults :5434/:6381 (see playwright.config.ts)
 ```
 
 ## Manual Smoke
 
 1. Login as `acme` / `admin@acme.com` / `admin123`
-2. Dashboard shows four KPIs
-3. CRUD flows: customers, products, suppliers, sales (draft → edit → confirm)
+2. Dashboard shows six KPIs (financial totals visible for admin)
+3. CRUD flows: customers, products, suppliers, sales (draft → confirm)
+4. CSV export on a list page; period PDF on dashboard (admin/manager)
+5. Viewer smoke: `viewer@acme.com` / `admin123` — no create buttons; `/users` redirects

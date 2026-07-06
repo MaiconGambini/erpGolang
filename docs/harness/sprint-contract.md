@@ -28,7 +28,7 @@
 
 ## Project Judge Verdict: **Accept** (remediation scope)
 
-Pending: full `npx playwright test` run with API + DB for 15 tests; user sets `FLY_API_TOKEN` for live CD.
+Pending: full `npx playwright test` run with API + DB for 20 tests; user sets `FLY_API_TOKEN` for live CD.
 
 ## Suggested commit groups
 

@@ -1,12 +1,13 @@
 # Module Template
 
-Use this template for every new business module. **Reference modules:** `customers` (CRUD), `sales` (workflow), `dashboard` (read-model).
+Use this template for every new business module. **Reference modules:** `customers` (CRUD), `sales` (workflow), `dashboard` + `reports` (read-model), `users` (admin).
 
 ## Choose Module Kind
 
 - [ ] **Entity CRUD** — copy: `customers`, `products`, `suppliers`
 - [ ] **Workflow** — copy: `sales`
-- [ ] **Read-model** — copy: `dashboard`
+- [ ] **Read-model** — copy: `dashboard`, `reports`
+- [ ] **Admin** — copy: `users`, `audit`
 
 ## Module Overview
 
@@ -30,6 +31,7 @@ Audit events:
 - DTOs and `toDTO()` in `service.go`.
 - sqlc generated code used directly in service (no separate repository interface unless unit-test mocks are required).
 - Routes: `AuthJWT` + `TenantScope` on tenant-owned resources.
+- `RequireRole` guards per `docs/ROLES.md` on each route.
 - `handler_test.go` for HTTP contract; `integration_test.go` for tenant isolation (`//go:build integration`).
 
 ### Entity CRUD extras
@@ -54,6 +56,14 @@ Audit events:
 - Prefer module-owned DTO with camelCase JSON (avoid leaking sqlc row shape).
 - Tenant isolation integration test.
 - Document Vue Query invalidation sources from other modules.
+- Optional CSV via shared `export` helper on list handlers (`?format=csv`).
+- PDF/binary responses: set `Content-Type` and `Content-Disposition` in handler.
+
+### Admin extras
+
+- Restrict routes to admin role (`RequireRole` with admin only).
+- Frontend: `requireAdmin` router guard + sidebar visibility.
+- List endpoints paginated; updates validate role/active flags.
 
 ## Frontend Checklist
 
@@ -63,6 +73,7 @@ Audit events:
 - Page under `pages/<module>/`.
 - Sidebar route added.
 - Loading, empty, error, and success states.
+- Role-aware actions via `shared/lib/roles.ts`.
 - Invalidate related query keys; call `invalidateDashboardSummary()` when KPIs change.
 
 ## Cache Invalidation Matrix

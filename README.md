@@ -104,9 +104,9 @@ Browser
 | `customers` | Reference CRUD module |
 | `products` | Catalog, stock, low-stock list |
 | `suppliers` | Supplier CRUD |
-| `sales` | Draft sales, confirm (stock −), cancel (stock +), sale PDF |
-| `dashboard` | KPI aggregate (6 metrics) |
-| `reports` | Sales-by-day, top products, sales summary PDF |
+| `sales` | Draft sales, confirm (stock −), cancel (stock +) |
+| `dashboard` | KPI aggregate (6 metrics; financial KPIs redacted for operator/viewer) |
+| `reports` | Sales-by-day, top products, sale PDF, period summary PDF |
 | `users` | List/get/update users (admin) |
 | `audit` | Write-side recorder + admin audit log list |
 
@@ -134,8 +134,8 @@ Browser
 ### Reporting
 
 - **CSV** — customers, products, suppliers, sales (`?format=csv`; sales supports `from`/`to`)
-- **PDF** — sale detail (`GET /sales/{id}/pdf`), period summary (`GET /reports/sales-summary.pdf`)
-- **Charts** — sales by day, top products (dashboard date range)
+- **PDF** — sale detail (`GET /reports/sales/{id}/pdf`), period summary (`GET /reports/sales-summary.pdf`)
+- **Charts** — sales by day, top products (dashboard date range; admin/manager only)
 
 ### Auth Flow
 
@@ -211,12 +211,12 @@ App: `http://localhost:5173` (proxies `/api` → backend).
 ```bash
 # Backend
 cd backend && go test ./...
-go test -tags=integration ./internal/customers/... ./internal/sales/... ./internal/reports/...
+go test -tags=integration ./internal/customers/... ./internal/dashboard/... ./internal/sales/... ./internal/reports/...
 
 # Frontend
 cd frontend && npm run typecheck && npm run test:unit
 
-# E2E (docker-compose.dev.yml up)
+# E2E (docker-compose.dev.yml up; 20 tests, global-setup migrates + seeds)
 cd frontend && npx playwright test
 
 # Full gate

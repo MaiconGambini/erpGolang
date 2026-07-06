@@ -66,6 +66,13 @@ Pagination:
 - Never trust tenant ID from request body or query string.
 - Cross-tenant access must be covered by tests.
 
+## Export
+
+- CSV list export: `?format=csv` on paginated list endpoints.
+- UTF-8 BOM prefix for Excel compatibility (pt-BR locale).
+- PDF/binary exports live under `reports` module; use `Content-Disposition: attachment`.
+- Export respects the same RBAC roles as the underlying list/read endpoint.
+
 ## Git
 
 Use Conventional Commits:

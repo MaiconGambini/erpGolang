@@ -21,9 +21,10 @@ Invoke `harness-clean-handoff` before closing. Record verification, blockers, ne
 
 ### goERP Project Context
 
-- Stack: Go 1.23+ (chi, pgx, sqlc, Atlas) + Vue 3 (FSD, PrimeVue, Pinia, Vue Query).
-- Plan: `plan.md` (phases 0–10). Context: `context.md`, `docs/`.
-- Reference module: `customers` (backend + frontend).
+- Stack: Go 1.25+ (chi, pgx, sqlc, Atlas, Redis, gofpdf) + Vue 3 (FSD, PrimeVue, Pinia, Vue Query, Chart.js).
+- Plan: `plan.md` (phases 0–10). Context: `context.md` (brainstorm), canonical docs: `docs/README.md`.
+- Reference modules: `customers` (CRUD), `sales` (workflow), `dashboard` + `reports` (read-model).
+- RBAC: `docs/ROLES.md`; middleware `RequireRole`; frontend `shared/lib/roles.ts`.
 - Never create tenant-owned tables without `tenant_id`.
 - Never access tenant data without filtering by `tenant_id`.
 - API errors: `{ error: { code, message, details } }`.
@@ -43,5 +44,6 @@ make validate
 # or:
 docker compose -f docker-compose.dev.yml config
 cd backend && go test ./... && go build ./...
-cd frontend && npm run typecheck && npm run build
+go test -tags=integration ./internal/customers/... ./internal/sales/... ./internal/reports/... ./internal/dashboard/...
+cd frontend && npm run typecheck && npm run build && npx playwright test
 ```

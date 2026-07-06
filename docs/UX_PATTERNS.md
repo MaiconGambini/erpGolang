@@ -112,3 +112,32 @@ Metrics: responsive KPI grid (1 col mobile → 2–4 cols desktop)
 - Metric grid: `role="region"` + `aria-label="Resumo da operação"`.
 - Error messages: `role="alert"`; retry button keyboard-focusable.
 - Do not rely on color alone for alert metrics.
+
+## Role-Aware UI
+
+- Central helpers: `shared/lib/roles.ts` (`canCreate`, `canEdit`, `canDelete`, `canViewFinancial`, `requireAdmin`).
+- Viewer: hide create/edit/delete actions; server still enforces RBAC.
+- Admin-only routes: `/users`, `/audit` with `requireAdmin` router guard.
+- Financial surfaces (revenue KPIs, charts, period PDF) hidden unless `canViewFinancial` (admin/manager).
+- Sale PDF and CSV export remain available per `docs/ROLES.md`.
+
+## Reporting & Export
+
+### CSV export
+
+- Toolbar button on list pages (customers, products, suppliers, sales).
+- API: `?format=csv` on list endpoints; UTF-8 BOM for Excel (pt-BR).
+- Sales export passes current table filters (`from`, `to`, `status`, search) via exposed `exportParams`.
+
+### PDF export
+
+- Sale detail: row action or sales table → `GET /reports/sales/{id}/pdf`.
+- Period summary: dashboard toolbar → `GET /reports/sales-summary.pdf?from=&to=`.
+- Download via blob helper in `shared/lib/export.ts`; show toast on failure.
+
+### Dashboard charts
+
+- Date range picker (default last 30 days) drives chart queries and period PDF.
+- Sales-by-day line chart and top-products bar chart (Chart.js).
+- KPI drill-downs: customers → `/customers`; draft sales → `/sales?status=draft`; low stock → `/products?lowStock=1`; confirmed → `/sales?status=confirmed`.
+- Six KPI cards; operators/viewers see operational metrics only (financial totals redacted server-side).
