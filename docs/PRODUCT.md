@@ -2,14 +2,16 @@
 
 ## Purpose
 
-goERP is a modular, tenant-aware ERP for small and medium businesses. MVP 1 delivers authentication, multi-tenant isolation, and a complete customers module as the reference pattern for future modules (products, orders, etc.).
+goERP is a modular, tenant-aware ERP for small and medium businesses. MVP 1 delivers authentication, multi-tenant isolation, reference CRUD modules (customers, products, suppliers, sales), and a live dashboard summary.
 
 ## Core User Journeys
 
-1. **Admin login** — tenant slug + email + password → dashboard
+1. **Admin login** — tenant slug + email + password → dashboard with live KPIs
 2. **Session persistence** — refresh on page reload without re-login
 3. **Customer management** — list, search, paginate, create, edit, soft-delete customers
-4. **Tenant isolation** — tenant A never sees tenant B data (404 on cross-tenant access)
+4. **Catalog & supply** — products (stock, low-stock alerts), suppliers CRUD
+5. **Sales** — draft sales, confirm (stock decrement), cancel (stock restore)
+6. **Tenant isolation** — tenant A never sees tenant B data (404 on cross-tenant access)
 
 ## Differentiators
 
@@ -17,10 +19,10 @@ goERP is a modular, tenant-aware ERP for small and medium businesses. MVP 1 deli
 - Modular monolith: new business module in ~1–2 days using customers template
 - FSD frontend with consistent UX patterns (`docs/UX_PATTERNS.md`)
 
-## Non-Goals (MVP 1)
+## Non-Goals (current scope)
 
 - Tenant self-registration
 - Roles beyond admin on routes (schema supports all roles; MVP applies admin only)
-- Products, orders, invoicing
+- Invoicing, purchasing workflows beyond sales draft/confirm
 - i18n, dark mode, PWA, offline
 - Microservices, GraphQL, real-time

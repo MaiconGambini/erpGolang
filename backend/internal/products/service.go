@@ -8,6 +8,7 @@ import (
 
 	"github.com/MaiconGambini/erpGolang/backend/gen/db"
 	sharedaudit "github.com/MaiconGambini/erpGolang/backend/internal/shared/audit"
+	"github.com/MaiconGambini/erpGolang/backend/internal/shared/inventory"
 	"github.com/MaiconGambini/erpGolang/backend/internal/shared/pgutil"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -85,10 +86,7 @@ func (s *Service) LowStock(ctx context.Context, p LowStockParams) ([]ProductDTO,
 	if err != nil {
 		return nil, err
 	}
-	threshold := int32(p.Threshold)
-	if threshold < 0 {
-		threshold = 0
-	}
+	threshold := inventory.NormalizeLowStockThreshold(p.Threshold)
 	limit := int32(p.Limit)
 	if limit <= 0 {
 		limit = 50

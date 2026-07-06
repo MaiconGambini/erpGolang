@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
+const e2ePort = 5174
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
@@ -8,7 +10,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: 'list',
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: `http://localhost:${e2ePort}`,
     trace: 'on-first-retry',
   },
   projects: [
@@ -30,8 +32,8 @@ export default defineConfig({
       },
     },
     {
-      command: 'npm run dev',
-      url: 'http://localhost:5173',
+      command: `npm run dev -- --port ${e2ePort} --strictPort`,
+      url: `http://localhost:${e2ePort}`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },

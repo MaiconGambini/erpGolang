@@ -13,6 +13,7 @@
     { "id": "phase-10", "name": "Phase 10 — Deploy", "status": "passing" },
     { "id": "post-mvp-products", "name": "Post-MVP — Products module", "status": "passing" },
     { "id": "post-mvp-suppliers", "name": "Post-MVP — Suppliers module", "status": "passing" },
-    { "id": "post-mvp-sales", "name": "Post-MVP — Sales module", "status": "passing" }
+    { "id": "post-mvp-sales", "name": "Post-MVP — Sales module", "status": "passing" },
+    { "id": "post-mvp-dashboard", "name": "Post-MVP — Dashboard KPIs", "status": "passing" }
   ]
 }

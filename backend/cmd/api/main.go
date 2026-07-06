@@ -15,6 +15,7 @@ import (
 	"github.com/MaiconGambini/erpGolang/backend/internal/auth"
 	"github.com/MaiconGambini/erpGolang/backend/internal/config"
 	"github.com/MaiconGambini/erpGolang/backend/internal/customers"
+	"github.com/MaiconGambini/erpGolang/backend/internal/dashboard"
 	"github.com/MaiconGambini/erpGolang/backend/internal/platform/database"
 	"github.com/MaiconGambini/erpGolang/backend/internal/platform/logger"
 	"github.com/MaiconGambini/erpGolang/backend/internal/products"
@@ -60,6 +61,7 @@ func main() {
 			users.NewModule(),
 			tenants.NewModule(),
 			customers.NewModule(),
+			dashboard.NewModule(),
 			products.NewModule(),
 			suppliers.NewModule(),
 			sales.NewModule(),

@@ -2,28 +2,26 @@
 
 ## Current Active Work
 
-**WIP=1:** Phase 3–7 gap analysis and completion per `plan.md`, orchestrated via spec-lead + PREVC.
+**Thermo-nuclear remediation** — complete (pending full E2E run + Fly CD secret).
+
+## Completed (this session)
+
+- Centralized low-stock threshold (backend + frontend)
+- Dashboard code simplification + Vue Query cache safety
+- Dashboard handler/integration/E2E tests
+- CI: Go 1.25, golangci-lint, integration job, frontend unit tests
+- CD: `deploy.yml` for Fly.io
 
 ## Verification Status
 
-| Check | Command | Result |
-|---|---|---|
-| Docker compose config | `docker compose -f docker-compose.dev.yml config` | PASS (2026-07-03) |
-| Backend tests | `cd backend && go test ./...` | PASS — no test files yet |
-| Frontend typecheck | `cd frontend && npm run typecheck` | Not run this session |
+```text
+$ cd backend && go test ./...
+exit 0
 
-## Blockers
-
-_None recorded._
-
-## Decisions Log
-
-| Date | Decision | Why |
-|---|---|---|
-| 2026-07-03 | Full harness bootstrap applied | User requested `/harness-bootstrap` before multi-phase build |
-| 2026-07-03 | Phases 0–2 marked passing | Monorepo scaffold and skeleton exist in repo |
-| 2026-07-03 | Phase 8 (tests) is primary gap | `go test ./...` reports no test files across all packages |
+$ cd frontend && npm run typecheck && npm run test:unit
+exit 0 (12 tests)
+```
 
 ## Next Best Action
 
-PREVC Review: user approves plan, then Execute slice 1 (Phase 3 backend foundation — chi + pgx + redis + httpx + probing readyz).
+Run `npx playwright test`; configure `FLY_API_TOKEN`; commit when user approves.

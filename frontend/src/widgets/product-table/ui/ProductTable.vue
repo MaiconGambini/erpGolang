@@ -23,7 +23,7 @@
           <td>{{ product.sku }}</td>
           <td>R$ {{ formatPrice(product.price) }}</td>
           <td>
-            <span :class="{ 'low-stock': product.stock <= 5 }">{{ product.stock }}</span>
+            <span :class="{ 'low-stock': product.stock <= LOW_STOCK_THRESHOLD }">{{ product.stock }}</span>
           </td>
           <td>
             <span class="badge" :class="{ inactive: !product.active }">
@@ -53,6 +53,7 @@
 import { computed, ref, watch } from 'vue'
 import type { Product } from '@/entities/product/model/types'
 import { useListProducts } from '@/features/product/list/model/use-list-products'
+import { LOW_STOCK_THRESHOLD } from '@/shared/config/inventory'
 
 const emit = defineEmits<{
   edit: [product: Product]

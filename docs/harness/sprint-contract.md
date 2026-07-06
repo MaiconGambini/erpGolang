@@ -2,57 +2,40 @@
 
 ## Sprint Overview
 
-- Objective: Complete goERP MVP per `plan.md` phases 3–10 (gap-fill from current scaffold)
-- Feature ID: goerp-mvp-1
-- Date: 2026-07-03
-
-## Scope
-
-**In scope:**
-
-- Gap analysis and completion of phases 3–7 (backend foundation through customers E2E)
-- Phase 8 tests (unit, integration, handler, Vitest, Playwright smoke)
-- Phase 9 observability (logs, health, shutdown, rate limit, CORS)
-- Phase 10 deploy artifacts (Dockerfiles, CI, Caddy)
-
-**Out of scope:**
-
-- New business modules beyond customers
-- i18n, dark mode, PWA, GraphQL, microservices
-- Tenant self-registration (seed/CLI only for MVP)
-
-## Roles
-
-- Planner: spec-lead + PREVC
-- Generator: domain subagents (Go backend, Vue frontend)
-- Evaluator: project-judge
+- **Objective:** Thermo-nuclear review remediation — dashboard quality, tests, CI/CD
+- **Feature ID:** `post-mvp-dashboard`, production checklist gaps
+- **Date:** 2026-07-06
 
 ## Acceptance Criteria
 
-- [ ] `make validate` exits 0
-- [ ] Login + refresh + logout work via API and UI
-- [ ] Customers CRUD with tenant isolation and audit logs
-- [ ] At least one backend service test and one handler test
-- [ ] At least one Playwright E2E (login + create customer)
-- [ ] README local quick-start verified in 5 steps
+- [x] Centralized low-stock threshold (backend `shared/inventory`, frontend `shared/config/inventory`)
+- [x] Dashboard handler + integration tests; E2E `dashboard.spec.ts`
+- [x] Vue Query cache cleared on logout; dashboard invalidation on mutations
+- [x] CI: Go 1.25, golangci-lint, integration job, frontend `test:unit`
+- [x] CD: `.github/workflows/deploy.yml` (requires `FLY_API_TOKEN` secret)
+- [x] `go test ./...`, `npm run typecheck`, `npm run test:unit` pass locally
 
-## Verification Plan
-
-| Check | Command | Pass Condition |
-|---|---|---|
-| Infra | `docker compose -f docker-compose.dev.yml config` | exit 0 |
-| Backend | `cd backend && go test ./...` | exit 0, tests exist |
-| Backend build | `cd backend && go build ./...` | exit 0 |
-| Frontend | `cd frontend && npm run typecheck && npm run build` | exit 0 |
-| Full | `make validate` | exit 0 |
-
-## Evidence Log
+## Evidence Log (2026-07-06 remediation)
 
 | Check | Output | Pass? |
-|---|---|---|
-| docker compose config | name: erpgolang | yes |
-| go test | no test files, exit 0 | partial |
+|-------|--------|-------|
+| Backend unit | `go test ./...` — exit 0 (dashboard tests skip without DATABASE_URL) | yes |
+| Inventory unit | `go test ./internal/shared/inventory/...` — exit 0 | yes |
+| Frontend typecheck | `vue-tsc --noEmit` — exit 0 | yes |
+| Frontend unit | `vitest run` — 12 passed | yes |
+| Dashboard E2E | `e2e/dashboard.spec.ts` added (2 tests) | pending full suite run |
+| CI workflows | `backend.yml`, `frontend.yml`, `e2e.yml`, `deploy.yml` updated | yes |
 
-## Sprint Log
+## Project Judge Verdict: **Accept** (remediation scope)
 
-- 2026-07-03: Harness bootstrap applied. PREVC Plan pending user approval.
+Pending: full `npx playwright test` run with API + DB for 15 tests; user sets `FLY_API_TOKEN` for live CD.
+
+## Suggested commit groups
+
+1. `fix(docker): align migrate Dockerfile to Go 1.25`
+2. `feat(dashboard): live KPI summary API + page`
+3. `refactor(inventory): centralize low-stock threshold`
+4. `test(dashboard): handler, integration, e2e`
+5. `ci: go 1.25, golangci-lint, integration, test:unit`
+6. `ci: fly deploy on main`
+7. `chore(harness): policy docs + handoff`

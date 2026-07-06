@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { cancelSale, confirmSale, removeSale } from '@/entities/sale/api/sale.api'
+import { invalidateDashboardSummary } from '@/features/dashboard/summary/model/use-dashboard-summary'
 
 export function useConfirmSale() {
   const queryClient = useQueryClient()
@@ -8,6 +9,7 @@ export function useConfirmSale() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['sales'] })
       await queryClient.invalidateQueries({ queryKey: ['products'] })
+      await invalidateDashboardSummary(queryClient)
     },
   })
 }
@@ -19,6 +21,7 @@ export function useCancelSale() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['sales'] })
       await queryClient.invalidateQueries({ queryKey: ['products'] })
+      await invalidateDashboardSummary(queryClient)
     },
   })
 }
@@ -29,6 +32,7 @@ export function useDeleteSale() {
     mutationFn: (id: string) => removeSale(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['sales'] })
+      await invalidateDashboardSummary(queryClient)
     },
   })
 }

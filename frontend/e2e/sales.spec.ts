@@ -41,7 +41,7 @@ test.describe('sales', () => {
     await page.getByRole('button', { name: 'Novo cliente' }).click()
     await page.getByLabel('Nome *').fill(customerName)
     await page.getByRole('button', { name: 'Salvar' }).click()
-    await expect(page.getByText(customerName)).toBeVisible()
+    await expect(page.getByRole('cell', { name: customerName })).toBeVisible()
 
     const sku = `SALE-SKU-${Date.now()}`
     await page.goto('/products')
@@ -55,7 +55,7 @@ test.describe('sales', () => {
 
     await page.goto('/sales')
     await createDraftSale(page, customerName, sku)
-    await expect(page.getByText(customerName)).toBeVisible()
+    await expect(page.getByRole('cell', { name: customerName })).toBeVisible()
     await expect(page.locator('.badge.draft').first()).toBeVisible()
 
     await page.getByRole('button', { name: 'Confirmar' }).first().click()

@@ -1,3 +1,4 @@
+import { LOW_STOCK_THRESHOLD } from '@/shared/config/inventory'
 import { apiClient } from '@/shared/api/client'
 import type { Paginated } from '@/shared/api/types'
 import type { Product } from '../model/types'
@@ -14,7 +15,7 @@ export async function listProducts(params: ListProductsParams = {}): Promise<Pag
   return response.data
 }
 
-export async function listLowStockProducts(threshold = 5, limit = 50): Promise<Product[]> {
+export async function listLowStockProducts(threshold = LOW_STOCK_THRESHOLD, limit = 50): Promise<Product[]> {
   const response = await apiClient.get<{ data: Product[] }>('/products/low-stock', {
     params: { threshold, limit },
   })

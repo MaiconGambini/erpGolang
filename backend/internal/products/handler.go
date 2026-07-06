@@ -8,6 +8,7 @@ import (
 
 	"github.com/MaiconGambini/erpGolang/backend/internal/shared/authctx"
 	"github.com/MaiconGambini/erpGolang/backend/internal/shared/httpx"
+	"github.com/MaiconGambini/erpGolang/backend/internal/shared/inventory"
 	"github.com/MaiconGambini/erpGolang/backend/internal/shared/tenantctx"
 	"github.com/go-chi/chi/v5"
 )
@@ -47,10 +48,8 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) LowStock(w http.ResponseWriter, r *http.Request) {
 	tenantID, _ := tenantctx.TenantIDFromContext(r.Context())
 	q := r.URL.Query()
-	threshold, _ := strconv.Atoi(q.Get("threshold"))
-	if threshold <= 0 {
-		threshold = 5
-	}
+	thresholdRaw, _ := strconv.Atoi(q.Get("threshold"))
+	threshold := int(inventory.NormalizeLowStockThreshold(thresholdRaw))
 	limit, _ := strconv.Atoi(q.Get("limit"))
 	items, err := h.svc.LowStock(r.Context(), LowStockParams{
 		TenantID:  tenantID,
