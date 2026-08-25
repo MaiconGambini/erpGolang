@@ -41,6 +41,14 @@ SKIP — database unavailable (Docker daemon down locally); CI exercises it
 
 $ sh -n deploy/scripts/*.sh; python -c yaml.safe_load(deploy-vps.yml); docker compose config (prod)
 SYNTAX_OK_SH · WORKFLOW_YAML_OK · COMPOSE_CONFIG_OK
+
+$ go test -tags=integration -count=3 ./internal/sales/   (live PG)
+9/9 PASS — TestConcurrentConfirmSingleDecrement deterministic: 1×200 + 3×409, single decrement
+
+$ backup.sh → restore.sh → row-count diff (dev compose)
+DRILL PASS: users 3/3, customers 74/74; scratch db dropped
+
+$ browser: 4 PNG screenshots from seeded stack; /audit page verified
 ```
 
 ## Thermo-Nuclear Remediation (prior session)
@@ -73,7 +81,7 @@ SYNTAX_OK_SH · WORKFLOW_YAML_OK · COMPOSE_CONFIG_OK
 2. **OpenAPI contract** — DONE 2026-08-25: `contract/openapi.yaml` (OpenAPI 3.0.3, 40/40 chi routes, `redocly lint` clean, bare-vs-wrapped envelope inconsistency documented)
 3. **Sales race** — DONE 2026-08-25: verified the documented gap was already half-closed (conditional `UpdateSaleStatus`), added `GetSaleForUpdate FOR UPDATE` recheck in `Confirm`/`Cancel`, regression test `TestConcurrentConfirmSingleDecrement`; doc `SALES_TRANSACTIONS.md` synced
 4. **Ops** — DONE 2026-08-25 (modulo live drill): `.github/workflows/deploy-vps.yml` (workflow_dispatch; secrets `VPS_SSH_KEY`/`VPS_HOST`/`VPS_USER` needed before first run), `deploy/scripts/backup.sh` (+verify+retention), `deploy/scripts/restore.sh` (scratch-db default + live-guard), `DEPLOYMENT.md §Backup & Restore Drill` with cron tiers + pass criteria; compose config validated offline
-5. **Portfolio polish** — replace `docs/images/*.svg` with real screenshots; user mutation audit trail
+5. **Portfolio polish** — DONE 2026-08-25: real screenshots captured from seeded stack replace SVG mockups (`docs/images/*.png`, README updated); "user mutation audit trail" verified already shipped (`/audit` admin page + service-level audit events on create/update/delete/confirm/cancel)
 
 ## Next Best Step
 

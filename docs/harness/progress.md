@@ -10,7 +10,7 @@
 
 ## Current Active Work
 
-**P1** — remaining: Fly CD secret (blocked on operator). DONE 2026-08-25: OpenAPI contract (`contract/openapi.yaml`); sales confirm race guard (`agent-os/specs/2026-08-25-1354-sales-confirm-race/`); VPS deploy automation (`deploy-vps.yml`) + backup/restore scripts (`deploy/scripts/`) + drill runbook (`DEPLOYMENT.md §Backup & Restore Drill`).
+**P1 backlog — CLEAR** (2026-08-25). DONE: OpenAPI contract (`contract/openapi.yaml`); sales confirm race guard (`agent-os/specs/2026-08-25-1354-sales-confirm-race/`, 9/9 integration PASS ×3 runs on live PG); VPS deploy workflow + backup/restore scripts (**first drill PASS**, row counts matched); real screenshots replacing SVG mockups (`docs/images/*.png`, commit 99d02bb); audit trail verified shipped end-to-end (`/audit` viewer + service-level audit events). Remaining external dependency: `FLY_API_TOKEN` secret for the Fly CD workflow.
 
 ## Completed (prior session)
 
@@ -50,7 +50,9 @@ SYNTAX_OK_SH / WORKFLOW_YAML_OK
 $ GOERP_ENV_FILE=deploy/env/production.env.example docker compose -f deploy/compose/docker-compose.prod.yml config
 COMPOSE_CONFIG_OK (offline validation)
 
-NOT executed (Docker daemon down): first backup run, restore drill — logged as pending in DEPLOYMENT.md drill log
+Backup/restore drill EXECUTED 2026-08-25 (dev compose): PASS — see DEPLOYMENT.md drill log
+$ browser: login/dashboard/sales/customer-form captured from seeded stack (goerp-api :8080 + goerp-web :5173, hub-managed)
+$ /audit page renders tenant action table — mutation audit trail confirmed present
 ```
 
 ## Next Best Action
