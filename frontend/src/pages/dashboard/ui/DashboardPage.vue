@@ -77,10 +77,11 @@ import { useRouter } from 'vue-router'
 import type { DashboardSummary } from '@/entities/dashboard/model/types'
 import { getSalesByDay, getTopProducts, downloadSalesSummaryPdf } from '@/entities/reports/api/reports.api'
 import { useDashboardSummary } from '@/features/dashboard/summary/model/use-dashboard-summary'
-import { useSessionStore } from '@/entities/session/model/session.store'
+import { canViewFinancial } from '@/shared/lib/roles'
+import { useTheme } from '@/shared/lib/use-theme'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import { downloadBlob } from '@/shared/lib/download'
-import { canViewFinancial } from '@/shared/lib/roles'
+import { useSessionStore } from '@/entities/session/model/session.store'
 import AppShell from '@/widgets/app-shell/ui/AppShell.vue'
 
 Chart.register(
@@ -118,6 +119,7 @@ const router = useRouter()
 const session = useSessionStore()
 const canViewFinancialUser = computed(() => canViewFinancial(session.user?.role))
 const { data, isPending, isError } = useDashboardSummary()
+const { isDark } = useTheme()
 
 const visibleMetrics = computed(() =>
   metrics.filter(
@@ -127,7 +129,7 @@ const visibleMetrics = computed(() =>
   ),
 )
 
-const fromDate = ref(format(subDays(new Date(), 30), 'yyyy-MM-dd'))
+const fromDate = ref(format(subDays(new Date(), 90), 'yyyy-MM-dd'))
 const toDate = ref(format(new Date(), 'yyyy-MM-dd'))
 const exportingPdf = ref(false)
 
@@ -195,7 +197,20 @@ async function onExportPdf() {
   }
 }
 
+function chartColors() {
+  const css = getComputedStyle(document.documentElement)
+  const read = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback
+  const brand = read('--color-brand', '#2563eb')
+  return {
+    brand,
+    brandFill: `${brand}1a`,
+    grid: read('--color-border', '#e2e8f0'),
+    tick: read('--color-text-muted', '#64748b'),
+  }
+}
+
 function renderSalesChart() {
+  const palette = chartColors()
   if (!salesChartRef.value || !salesByDay.value) return
   salesChart?.destroy()
   const labels = salesByDay.value.map((point) => {
@@ -210,8 +225,8 @@ function renderSalesChart() {
       datasets: [{
         label: 'Faturamento (R$)',
         data: totals,
-        borderColor: '#2563eb',
-        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+        borderColor: palette.brand,
+        backgroundColor: palette.brandFill,
         fill: true,
         tension: 0.3,
       }],
@@ -221,8 +236,14 @@ function renderSalesChart() {
       maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
+        x: {
+          grid: { color: palette.grid },
+          ticks: { color: palette.tick },
+        },
         y: {
+          grid: { color: palette.grid },
           ticks: {
+            color: palette.tick,
             callback: (value) => `R$ ${Number(value).toLocaleString('pt-BR')}`,
           },
         },
@@ -233,6 +254,7 @@ function renderSalesChart() {
 
 function renderProductsChart() {
   if (!productsChartRef.value || !topProducts.value) return
+  const palette = chartColors()
   productsChart?.destroy()
   const labels = topProducts.value.map((item) => item.productName)
   const quantities = topProducts.value.map((item) => item.quantity)
@@ -243,15 +265,24 @@ function renderProductsChart() {
       datasets: [{
         label: 'Quantidade vendida',
         data: quantities,
-        backgroundColor: '#2563eb',
+        backgroundColor: palette.brand,
         borderRadius: 4,
       }],
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true } },
+    scales: {
+      x: {
+        grid: { color: palette.grid },
+        ticks: { color: palette.tick },
+      },
+      y: {
+        grid: { color: palette.grid },
+        beginAtZero: true,
+        ticks: { color: palette.tick },
+      },
+    },
     },
   })
 }
@@ -266,6 +297,11 @@ watch(topProducts, () => {
   if (!topProductsLoading.value && !topProductsError.value) {
     renderProductsChart()
   }
+}, { flush: 'post' })
+
+watch(isDark, () => {
+  if (!salesByDayLoading.value && !salesByDayError.value) renderSalesChart()
+  if (!topProductsLoading.value && !topProductsError.value) renderProductsChart()
 }, { flush: 'post' })
 
 onBeforeUnmount(() => {
@@ -347,12 +383,10 @@ article.clickable:focus-visible {
 strong {
   color: var(--color-text-primary);
   font-size: 26px;
+  font-variant-numeric: tabular-nums;
 }
 
-.skeleton {
-  background: var(--color-border);
-  border-radius: 6px;
-  display: block;
+.grid .skeleton {
   height: 32px;
   width: 72px;
 }

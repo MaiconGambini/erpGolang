@@ -15,6 +15,16 @@
     <div class="main">
       <header class="topbar">
         <span class="user">{{ session.user?.name ?? 'Usuário' }}</span>
+        <button
+          type="button"
+          class="theme-toggle"
+          :aria-label="isDark ? 'Mudar para tema claro' : 'Mudar para tema escuro'"
+          :title="isDark ? 'Tema claro' : 'Tema escuro'"
+          @click="toggle"
+        >
+          <Moon v-if="!isDark" :size="17" :stroke-width="2" aria-hidden="true" />
+          <Sun v-else :size="17" :stroke-width="2" aria-hidden="true" />
+        </button>
         <LogoutButton />
       </header>
       <main class="content">
@@ -26,13 +36,17 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { Moon, Sun } from 'lucide-vue-next'
 import { useSessionStore } from '@/entities/session/model/session.store'
 import { isAdmin } from '@/shared/lib/roles'
+import { useTheme } from '@/shared/lib/use-theme'
 import LogoutButton from '@/features/auth/logout/ui/LogoutButton.vue'
 
 const session = useSessionStore()
+const { isDark, toggle } = useTheme()
 const isAdminUser = computed(() => isAdmin(session.user?.role))
 </script>
+
 
 <style scoped>
 .shell {
@@ -50,6 +64,40 @@ const isAdminUser = computed(() => isAdmin(session.user?.role))
   width: 240px;
 }
 
+@media (max-width: 768px) {
+  .shell {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+    flex-direction: row;
+    align-items: center;
+    gap: 2px;
+    overflow-x: auto;
+    padding: 10px 16px;
+    width: 100%;
+  }
+
+  .logo {
+    margin: 0 14px 0 0;
+    white-space: nowrap;
+  }
+
+  .sidebar a {
+    padding: 7px 10px;
+    white-space: nowrap;
+  }
+
+  .topbar {
+    padding: 10px 16px;
+  }
+
+  .content {
+    padding: 16px;
+  }
+}
 .logo {
   font-size: 20px;
   font-weight: 700;
@@ -68,7 +116,7 @@ a {
 }
 
 a.router-link-active {
-  background: #eff6ff;
+  background: var(--color-brand-soft);
   color: var(--color-brand-hover);
 }
 
@@ -95,5 +143,24 @@ a.router-link-active {
 .content {
   flex: 1;
   padding: 28px 32px;
+}
+
+.theme-toggle {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  height: 34px;
+  justify-content: center;
+  transition: border-color 0.15s ease, color 0.15s ease;
+  width: 34px;
+}
+
+.theme-toggle:hover {
+  border-color: var(--color-brand);
+  color: var(--color-brand);
 }
 </style>
