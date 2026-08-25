@@ -74,14 +74,43 @@ Minimum sequence:
 4. Run health checks.
 5. Abort rollout if migration or health checks fail.
 
-## Backup
+## Backup & Restore Drill
 
-For VPS PostgreSQL:
+Automated by `deploy/scripts/backup.sh` (custom-format `pg_dump` streamed from the
+compose `postgres` service, verified via `pg_restore --list`, retention sweep built in):
 
-- daily `pg_dump`
-- off-server storage
-- 7/14/30 day retention
-- restore tested before production use
+```bash
+export GOERP_ENV_FILE=/etc/goerp/goerp.env
+/opt/goerp/deploy/scripts/backup.sh /var/backups/goerp/daily 14
+```
+
+Cron tiers (7/14/30 retention policy):
+
+```text
+15 * * * * /opt/goerp/deploy/scripts/backup.sh /var/backups/goerp/hourly 1
+30 2 * * * /opt/goerp/deploy/scripts/backup.sh /var/backups/goerp/daily   14
+45 3 * * 0 /opt/goerp/deploy/scripts/backup.sh /var/backups/goerp/weekly 30
+```
+
+Ship `/var/backups/goerp/` off-server (rsync/restic) — the script does not upload.
+
+**Restore drill** (run quarterly, and before declaring production-ready) using
+`deploy/scripts/restore.sh` — defaults to a scratch database so it can never clobber live data:
+
+```bash
+CONFIRM=YES /opt/goerp/deploy/scripts/restore.sh \
+  /var/backups/goerp/daily/goerp-YYYYMMDD-HHMMSS.dump goerp_restore_check
+
+# pass criterion: key tables present, counts plausible vs production
+docker compose -f deploy/compose/docker-compose.prod.yml exec postgres \
+  psql -U goerp -d goerp_restore_check -c '\dt'
+```
+
+Record drill date + result in this file below.
+
+### Drill log
+
+- (no drills yet — first drill pending a running Postgres)
 
 For AWS, prefer RDS automated backups and snapshots.
 

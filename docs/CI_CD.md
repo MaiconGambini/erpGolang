@@ -29,7 +29,7 @@ Integration tests require `DATABASE_URL` pointing at a migrated database (CI use
 
 | Profile | Target | Automation |
 |---|---|---|
-| **A — VPS full stack** (default) | `deploy/compose/docker-compose.prod.yml` + Caddy | Manual / operator SSH |
+| **A — VPS full stack** (default) | `deploy/compose/docker-compose.prod.yml` + Caddy | `workflow_dispatch` (`deploy-vps.yml`) or operator SSH |
 | **B — Fly API split** | `fly.toml` + external Postgres/Redis | GitHub Actions on green Backend CI |
 
 Profile B does not deploy the frontend. Host static assets separately and set `ALLOWED_ORIGINS` to the frontend URL.
@@ -39,5 +39,5 @@ See `DEPLOYMENT.md` for operator runbooks.
 ## Known Gaps
 
 - E2E is not a hard gate for Fly deploy (Backend CI only).
-- No GitHub Actions workflow for VPS compose deploy.
+- VPS deploy automation exists (`deploy-vps.yml`) but needs `VPS_SSH_KEY`/`VPS_HOST`/`VPS_USER` secrets configured before first run; backup/restore scripts shipped (`deploy/scripts/`), first live drill still pending.
 - Branch protection should require Backend CI + Frontend CI status checks on PRs.
