@@ -10,7 +10,7 @@
 
 ## Current Active Work
 
-**P1 backlog — CLEAR** (2026-08-25). DONE: OpenAPI contract (`contract/openapi.yaml`); sales confirm race guard (`agent-os/specs/2026-08-25-1354-sales-confirm-race/`, 9/9 integration PASS ×3 runs on live PG); VPS deploy workflow + backup/restore scripts (**first drill PASS**, row counts matched); real screenshots replacing SVG mockups (`docs/images/*.png`, commit 99d02bb); audit trail verified shipped end-to-end (`/audit` viewer + service-level audit events). Remaining external dependency: `FLY_API_TOKEN` secret for the Fly CD workflow.
+**P1 backlog — CLEAR** (2026-08-25). UI Polish lane entregue via impeccable `polish`: dark mode com tokens (toggle no topbar, persistência, anti-FOUC), skeletons + empty states em 6 superfícies, shell responsivo ≤768px (sidebar virava conteúdo espremido), gráficos vivos (range 90d + `cmd/seed` com dataset demo idempotente), superfícies de browser tematizadas. Verificação: typecheck/build/unit(14)/E2E(21) verdes, detect.mjs (1 warning de fonte = exceção intencional), inspeção visual batched + rodada de confirmação. Screenshots do README re-capturados (dark, dados demo limpos). Commits b59fec0..510bb8a.
 
 ## Completed (prior session)
 
