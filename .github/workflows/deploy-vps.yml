@@ -54,11 +54,10 @@ jobs:
 
             echo "[deploy] health check"
             for i in $(seq 1 12); do
-              if curl -fsS http://127.0.0.1:8080/api/v1/healthz >/dev/null 2>&1; then
+              if curl -fsS http://127.0.0.1:8080/healthz >/dev/null 2>&1; then
                 echo "[deploy] healthy"; exit 0
               fi
               sleep 5
             done
             echo "[deploy] ERROR: backend unhealthy after rollout" >&2
-            echo "[deploy] inspect: docker compose -f deploy/compose/docker-compose.prod.yml logs backend" >&2
             exit 1
