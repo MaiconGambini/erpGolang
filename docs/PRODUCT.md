@@ -46,6 +46,6 @@ See `docs/ARCHITECTURE.md`, `docs/CI_CD.md`, and `DEPLOYMENT.md` for technical d
 - Tenant self-registration
 - NF-e, SPED, fiscal invoicing
 - Payments, AP/AR, purchase orders, stock ledger
-- i18n, dark mode, PWA, offline
+- i18n, PWA, offline (dark mode added 2026-08-25 by operator decision)
 - Microservices, GraphQL, real-time
 - Live hosted demo (screenshots in README)
