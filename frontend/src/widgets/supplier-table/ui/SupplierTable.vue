@@ -3,9 +3,14 @@
     <div class="toolbar">
       <input v-model="searchInput" placeholder="Buscar por nome ou documento" />
     </div>
-    <p v-if="isLoading" class="state">Carregando...</p>
+    <TableSkeleton v-if="isLoading" :cols="5" />
     <p v-else-if="isError" class="state error">Erro ao carregar fornecedores</p>
-    <p v-else-if="!suppliers.length" class="state">Nenhum fornecedor encontrado</p>
+    <EmptyState
+      v-else-if="!suppliers.length"
+      :icon="Truck"
+      title="Nenhum fornecedor encontrado"
+      hint="Ajuste a busca ou cadastre o primeiro fornecedor usando “Novo fornecedor”."
+    />
     <table v-else>
       <thead>
         <tr>
@@ -58,6 +63,9 @@ import type { Supplier } from '@/entities/supplier/model/types'
 import { useSessionStore } from '@/entities/session/model/session.store'
 import { useListSuppliers } from '@/features/supplier/list/model/use-list-suppliers'
 import { canDelete, canWrite } from '@/shared/lib/roles'
+import EmptyState from '@/shared/ui/EmptyState.vue'
+import TableSkeleton from '@/shared/ui/TableSkeleton.vue'
+import { Truck } from 'lucide-vue-next'
 
 const session = useSessionStore()
 const canWriteUser = computed(() => canWrite(session.user?.role))

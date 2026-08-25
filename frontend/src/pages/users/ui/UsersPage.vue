@@ -2,9 +2,14 @@
   <AppShell>
     <AppPageHeader title="Usuários" description="Gerencie perfis e acesso dos usuários do tenant" />
     <section class="panel">
-      <p v-if="isLoading" class="state">Carregando...</p>
+      <TableSkeleton v-if="isLoading" :cols="5" />
       <p v-else-if="isError" class="state error">Erro ao carregar usuários</p>
-      <p v-else-if="!users.length" class="state">Nenhum usuário encontrado</p>
+      <EmptyState
+        v-else-if="!users.length"
+        :icon="UserCog"
+        title="Nenhum usuário encontrado"
+        hint="Usuários do tenant aparecem aqui após o convite ou criação."
+      />
       <table v-else>
         <thead>
           <tr>
@@ -52,6 +57,9 @@ import EditUserDialog from '@/features/user/edit/ui/EditUserDialog.vue'
 import { useListUsers } from '@/features/user/list/model/use-list-users'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
 import AppShell from '@/widgets/app-shell/ui/AppShell.vue'
+import EmptyState from '@/shared/ui/EmptyState.vue'
+import TableSkeleton from '@/shared/ui/TableSkeleton.vue'
+import { UserCog } from 'lucide-vue-next'
 import type { UserRole } from '@/shared/lib/roles'
 
 const limit = ref(20)

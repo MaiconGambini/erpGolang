@@ -3,11 +3,16 @@
     <div v-if="!lowStock" class="toolbar">
       <input v-model="searchInput" placeholder="Buscar por nome ou SKU" />
     </div>
-    <p v-if="isLoading" class="state">Carregando...</p>
+    <TableSkeleton v-if="isLoading" :cols="5" />
     <p v-else-if="isError" class="state error">Erro ao carregar produtos</p>
-    <p v-else-if="!products.length" class="state">
-      {{ lowStock ? 'Nenhum produto com estoque baixo' : 'Nenhum produto encontrado' }}
-    </p>
+    <EmptyState
+      v-else-if="!products.length"
+      :icon="Package"
+      :title="lowStock ? 'Nenhum produto com estoque baixo' : 'Nenhum produto encontrado'"
+      :hint="lowStock
+        ? 'Todos os produtos estão acima do limite definido.'
+        : 'Ajuste a busca ou cadastre o primeiro produto usando “Novo produto”.'"
+    />
     <table v-else>
       <thead>
         <tr>
@@ -66,6 +71,9 @@ import { useListLowStockProducts } from '@/features/product/list/model/use-list-
 import { useListProducts } from '@/features/product/list/model/use-list-products'
 import { LOW_STOCK_THRESHOLD } from '@/shared/config/inventory'
 import { canDelete, canWrite } from '@/shared/lib/roles'
+import EmptyState from '@/shared/ui/EmptyState.vue'
+import TableSkeleton from '@/shared/ui/TableSkeleton.vue'
+import { Package } from 'lucide-vue-next'
 
 const session = useSessionStore()
 const canWriteUser = computed(() => canWrite(session.user?.role))

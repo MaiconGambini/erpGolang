@@ -2,9 +2,14 @@
   <AppShell>
     <AppPageHeader title="Auditoria" description="Registro de ações realizadas no tenant" />
     <section class="panel">
-      <p v-if="isLoading" class="state">Carregando...</p>
+      <TableSkeleton v-if="isLoading" :cols="5" />
       <p v-else-if="isError" class="state error">Erro ao carregar auditoria</p>
-      <p v-else-if="!logs.length" class="state">Nenhum registro encontrado</p>
+      <EmptyState
+        v-else-if="!logs.length"
+        :icon="ScrollText"
+        title="Nenhum registro de auditoria"
+        hint="Ações de criação, edição e exclusão aparecem aqui automaticamente."
+      />
       <table v-else>
         <thead>
           <tr>
@@ -43,6 +48,9 @@ import { useQuery } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
 import { listAuditLogs } from '@/entities/audit/api/audit.api'
 import AppPageHeader from '@/shared/ui/AppPageHeader.vue'
+import EmptyState from '@/shared/ui/EmptyState.vue'
+import TableSkeleton from '@/shared/ui/TableSkeleton.vue'
+import { ScrollText } from 'lucide-vue-next'
 import AppShell from '@/widgets/app-shell/ui/AppShell.vue'
 
 const limit = ref(50)

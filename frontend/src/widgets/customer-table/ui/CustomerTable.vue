@@ -3,9 +3,14 @@
     <div class="toolbar">
       <input v-model="searchInput" placeholder="Buscar por nome, documento ou e-mail" />
     </div>
-    <p v-if="isLoading" class="state">Carregando...</p>
+    <TableSkeleton v-if="isLoading" :cols="5" />
     <p v-else-if="isError" class="state error">Erro ao carregar clientes</p>
-    <p v-else-if="!customers.length" class="state">Nenhum cliente encontrado</p>
+    <EmptyState
+      v-else-if="!customers.length"
+      :icon="Users"
+      title="Nenhum cliente encontrado"
+      hint="Ajuste a busca ou cadastre o primeiro cliente usando “Novo cliente”."
+    />
     <table v-else>
       <thead>
         <tr>
@@ -56,8 +61,11 @@
 import { computed, ref, watch } from 'vue'
 import type { Customer } from '@/entities/customer/model/types'
 import { useSessionStore } from '@/entities/session/model/session.store'
-import { useListCustomers } from '@/features/customer/list/model/use-list-customers'
 import { canDelete, canWrite } from '@/shared/lib/roles'
+import { useListCustomers } from '@/features/customer/list/model/use-list-customers'
+import EmptyState from '@/shared/ui/EmptyState.vue'
+import TableSkeleton from '@/shared/ui/TableSkeleton.vue'
+import { Users } from 'lucide-vue-next'
 
 const session = useSessionStore()
 const canWriteUser = computed(() => canWrite(session.user?.role))

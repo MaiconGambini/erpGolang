@@ -18,9 +18,14 @@
       </label>
     </div>
     <p v-if="actionError" class="state error">{{ actionError }}</p>
-    <p v-if="isLoading" class="state">Carregando...</p>
+    <TableSkeleton v-if="isLoading" :cols="5" />
     <p v-else-if="isError" class="state error">Erro ao carregar vendas</p>
-    <p v-else-if="!sales.length" class="state">Nenhuma venda encontrada</p>
+    <EmptyState
+      v-else-if="!sales.length"
+      :icon="ReceiptText"
+      title="Nenhuma venda encontrada"
+      hint="Ajuste os filtros de período, status ou busca por cliente."
+    />
     <table v-else>
       <thead>
         <tr>
@@ -100,6 +105,9 @@ import { useCancelSale, useConfirmSale, useDeleteSale } from '@/features/sale/ac
 import { useListSales } from '@/features/sale/list/model/use-list-sales'
 import { getApiErrorMessage } from '@/shared/api/errors'
 import { canManageSales, canWrite } from '@/shared/lib/roles'
+import EmptyState from '@/shared/ui/EmptyState.vue'
+import TableSkeleton from '@/shared/ui/TableSkeleton.vue'
+import { ReceiptText } from 'lucide-vue-next'
 
 const route = useRoute()
 const session = useSessionStore()
