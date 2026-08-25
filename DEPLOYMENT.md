@@ -110,7 +110,7 @@ Record drill date + result in this file below.
 
 ### Drill log
 
-- (no drills yet — first drill pending a running Postgres)
+- 2026-08-25 — **PASS** against dev compose (Postgres 16): `backup.sh` dump+`pg_restore --list` verify OK (98 KB archive); `restore.sh` loaded scratch db `goerp_restore_check`; row counts matched live (users 3/3, customers 74/74); scratch dropped. Drill surfaced two portability fixes kept in the scripts: Git-Bash path-conversion hardening (`MSYS_NO_PATHCONV` scoping + `host_path()`), explicit `pg_restore -U`.
 
 For AWS, prefer RDS automated backups and snapshots.
 

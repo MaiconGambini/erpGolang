@@ -17,6 +17,7 @@
 #
 # Ship the directories off-server (rsync/restic) — this script does not upload.
 
+
 set -euo pipefail
 
 DIR="${1:?usage: backup.sh <backup-dir> <retention-days>}"
@@ -27,6 +28,11 @@ PG_DB="${POSTGRES_DB:-goerp}"
 
 compose() {
 	docker compose -f "$COMPOSE_FILE" "$@"
+}
+
+# Windows-native form of a host path for the docker CLI (identity on Linux).
+host_path() {
+	cygpath -m "$1" 2>/dev/null || printf '%s' "$1"
 }
 
 command -v docker >/dev/null || { echo "docker CLI not found" >&2; exit 1; }
@@ -44,14 +50,14 @@ compose exec -T postgres pg_dump -U "$PG_USER" -d "$PG_DB" -Fc > "$tmp"
 # Integrity gate: the archive must at least be listable by pg_restore.
 if [ "${VERIFY:-1}" = "1" ]; then
 	echo "[backup] verifying archive"
-	compose cp "$tmp" postgres:/tmp/.goerp-verify.dump
-	if ! compose exec -T postgres pg_restore --list /tmp/.goerp-verify.dump >/dev/null; then
-		compose exec postgres rm -f /tmp/.goerp-verify.dump || true
+	compose cp "$(host_path "$tmp")" postgres:/tmp/.goerp-verify.dump
+	if ! MSYS_NO_PATHCONV=1 compose exec -T postgres pg_restore --list /tmp/.goerp-verify.dump >/dev/null; then
+		MSYS_NO_PATHCONV=1 compose exec postgres rm -f /tmp/.goerp-verify.dump || true
 		echo "[backup] ERROR: archive failed pg_restore --list" >&2
 		rm -f "$tmp"
 		exit 1
 	fi
-	compose exec postgres rm -f /tmp/.goerp-verify.dump
+	MSYS_NO_PATHCONV=1 compose exec postgres rm -f /tmp/.goerp-verify.dump
 fi
 
 mv "$tmp" "$out"

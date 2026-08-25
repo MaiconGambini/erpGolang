@@ -14,6 +14,7 @@
 #   GOERP_ENV_FILE      required by the prod compose file
 #   GOERP_COMPOSE_FILE  override (default deploy/compose/docker-compose.prod.yml)
 
+
 set -euo pipefail
 
 DUMP="${1:?usage: restore.sh <dump-file> [target-db]}"
@@ -23,6 +24,11 @@ PG_USER="${POSTGRES_USER:-goerp}"
 
 compose() {
 	docker compose -f "$COMPOSE_FILE" "$@"
+}
+
+# Windows-native form of a host path for the docker CLI (identity on Linux).
+host_path() {
+	cygpath -m "$1" 2>/dev/null || printf '%s' "$1"
 }
 
 [ -f "$DUMP" ] || { echo "no such dump: $DUMP" >&2; exit 1; }
@@ -37,7 +43,7 @@ if [ "${CONFIRM:-}" != "YES" ]; then
 fi
 
 echo "[restore] copying archive into container"
-compose cp "$DUMP" postgres:/tmp/.goerp-restore.dump
+compose cp "$(host_path "$DUMP")" postgres:/tmp/.goerp-restore.dump
 
 echo "[restore] recreating database $TARGET_DB"
 compose exec -T postgres psql -U "$PG_USER" -d postgres -v ON_ERROR_STOP=1 \
@@ -45,10 +51,10 @@ compose exec -T postgres psql -U "$PG_USER" -d postgres -v ON_ERROR_STOP=1 \
 	-c "CREATE DATABASE \"$TARGET_DB\" OWNER \"$PG_USER\";"
 
 echo "[restore] running pg_restore"
-compose exec -T postgres pg_restore --no-owner --role "$PG_USER" \
+MSYS_NO_PATHCONV=1 compose exec -T postgres pg_restore -U "$PG_USER" --no-owner --role "$PG_USER" \
 	-d "$TARGET_DB" /tmp/.goerp-restore.dump
 
-compose exec postgres rm -f /tmp/.goerp-restore.dump
+MSYS_NO_PATHCONV=1 compose exec postgres rm -f /tmp/.goerp-restore.dump
 
 echo "[restore] OK — sanity-check row counts:"
 echo "  $COMPOSE_FILE exec postgres psql -U $PG_USER -d $TARGET_DB -c '\\dt'"
