@@ -54,6 +54,9 @@ Inspired by learning-oriented READMEs like [person-crud](https://github.com/Kozi
 - **RBAC middleware** — `RequireRole` enforces `docs/ROLES.md` matrix on routes; viewer is read-only.
 - **Typed SQL with sqlc** — queries live in `.sql` files; generated Go code removes stringly-typed SQL in handlers.
 - **Transactional workflows** — sales `confirm` / `cancel` use `pgx` transactions to update status and product stock atomically.
+- **Concurrency control** — race between concurrent confirms closed with `SELECT ... FOR UPDATE` row locking plus a conditional `UPDATE ... WHERE status = $from`; pinned by a deterministic concurrency regression test (`TestConcurrentConfirmSingleDecrement`).
+- **Contract-first API** — OpenAPI 3.0 spec (`contract/openapi.yaml`) covering all 40 routes, CI-validated with Redocly, documenting real envelope behavior.
+- **Redis rate limiting** — sliding login throttle (`INCR` + `EXPIRE`, 5 attempts / 15 min per IP) that degrades open when Redis is unavailable.
 - **Reporting read-model** — dashboard KPIs, sales-by-day, top products, CSV export, PDF via gofpdf.
 - **Audit trail** — append-only `audit_logs` on business writes; admin audit log viewer.
 
@@ -67,9 +70,9 @@ Inspired by learning-oriented READMEs like [person-crud](https://github.com/Kozi
 
 ### DevOps & Reliability
 
-- **Docker Compose** — local Postgres + Redis; production full stack with Caddy TLS.
-- **CI pipelines** — backend lint/test/integration + coverage, frontend typecheck/unit/build, Playwright E2E.
 - **CD to Fly.io** — deploy gated on green Backend CI.
+- **Operable backups** — verified `pg_dump`/`pg_restore` scripts with integrity gate, retention tiers and a documented restore drill (row-count matched against live data).
+- **CI pipelines** — backend lint/test/integration + coverage, frontend typecheck/unit/build, Playwright E2E.
 
 ### Architecture Patterns
 
