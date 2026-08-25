@@ -15,11 +15,11 @@ Auth, catalog CRUD, sales with stock control, RBAC, CSV/PDF reports, and dashboa
 
 | Login | Dashboard (KPIs + charts) |
 |-------|---------------------------|
-| ![Login](docs/images/login.svg) | ![Dashboard](docs/images/dashboard.svg) |
+| ![Login](docs/images/login.png) | ![Dashboard](docs/images/dashboard.png) |
 
 | Sales workflow | Customer form (BR fields) |
 |----------------|---------------------------|
-| ![Sales](docs/images/sales.svg) | ![Customer form](docs/images/customer-form.svg) |
+| ![Sales](docs/images/sales.png) | ![Customer form](docs/images/customer-form.png) |
 
 ---
 
