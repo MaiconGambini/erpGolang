@@ -29,11 +29,22 @@ Editable/deletable only in `draft`.
 - `POST /sales/{id}/confirm` is **not** safely retryable until idempotency is added.
 - Do not blind-retry confirm after timeout.
 
-## Known Concurrency Gap
+## Concurrency Guards (verified 2026-08-25)
 
-`Confirm` reads status outside the transaction; `UPDATE sales SET status` does not require `status = 'draft'`. Two concurrent confirms could both decrement stock.
+- Status transitions are conditional updates: `UpdateSaleStatus`
+  (`backend/queries/sales.sql`) requires `AND status = @from_status`; a losing contender gets
+  `ErrNoRows` -> `INVALID_STATUS` (409) and its whole transaction rolls back.
+- `Confirm`/`Cancel` additionally take `SELECT ... FOR UPDATE` on the sale row at transaction
+  start (`GetSaleForUpdate`) and re-check status inside the tx, so the loser exits before
+  touching any product row.
+- Stock guards: decrement requires `stock >= quantity` (`INSUFFICIENT_STOCK`); increment is unguarded by design.
+- Regression test: `TestConcurrentConfirmSingleDecrement` in
+  `backend/internal/sales/integration_test.go` — run with
+  `go test -tags=integration ./internal/sales/...` against a live Postgres; skips otherwise.
 
-**Target fix:** `SELECT ... FOR UPDATE` inside tx; `UPDATE ... WHERE status = 'draft'`.
+The former "Known Concurrency Gap" (status flip without `status = 'draft'` predicate) is
+closed by the combination above. Confirm/cancel remain **not idempotent** — §Client Contract
+still applies.
 
 ## Audit
 

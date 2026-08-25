@@ -219,6 +219,29 @@ func (q *Queries) GetSale(ctx context.Context, arg GetSaleParams) (GetSaleRow, e
 	return i, err
 }
 
+const getSaleForUpdate = `-- name: GetSaleForUpdate :one
+SELECT id, status FROM sales
+WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+FOR UPDATE
+`
+
+type GetSaleForUpdateParams struct {
+	ID       pgtype.UUID `json:"id"`
+	TenantID pgtype.UUID `json:"tenant_id"`
+}
+
+type GetSaleForUpdateRow struct {
+	ID     pgtype.UUID `json:"id"`
+	Status string      `json:"status"`
+}
+
+func (q *Queries) GetSaleForUpdate(ctx context.Context, arg GetSaleForUpdateParams) (GetSaleForUpdateRow, error) {
+	row := q.db.QueryRow(ctx, getSaleForUpdate, arg.ID, arg.TenantID)
+	var i GetSaleForUpdateRow
+	err := row.Scan(&i.ID, &i.Status)
+	return i, err
+}
+
 const incrementProductStock = `-- name: IncrementProductStock :exec
 UPDATE products
 SET stock = stock + $1, updated_at = now()

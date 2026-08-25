@@ -82,3 +82,8 @@ RETURNING id, stock;
 UPDATE products
 SET stock = stock + @quantity, updated_at = now()
 WHERE id = @id AND tenant_id = @tenant_id AND deleted_at IS NULL;
+
+-- name: GetSaleForUpdate :one
+SELECT id, status FROM sales
+WHERE id = @id AND tenant_id = @tenant_id AND deleted_at IS NULL
+FOR UPDATE;

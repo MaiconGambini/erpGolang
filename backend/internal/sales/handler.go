@@ -82,7 +82,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 type saleRequest struct {
-	CustomerID string `json:"customerId"`
+	CustomerID string  `json:"customerId"`
 	Notes      *string `json:"notes"`
 	Items      []struct {
 		ProductID string `json:"productId"`

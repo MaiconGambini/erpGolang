@@ -19,8 +19,8 @@ import (
 	"github.com/MaiconGambini/erpGolang/backend/internal/customers"
 	"github.com/MaiconGambini/erpGolang/backend/internal/platform/database"
 	"github.com/MaiconGambini/erpGolang/backend/internal/platform/logger"
-	"github.com/MaiconGambini/erpGolang/backend/internal/platform/validation"
 	redisplatform "github.com/MaiconGambini/erpGolang/backend/internal/platform/redis"
+	"github.com/MaiconGambini/erpGolang/backend/internal/platform/validation"
 	"github.com/MaiconGambini/erpGolang/backend/internal/products"
 	"github.com/MaiconGambini/erpGolang/backend/internal/sales"
 	"github.com/MaiconGambini/erpGolang/backend/internal/tenants"
@@ -245,4 +245,58 @@ func getProductStock(t *testing.T, baseURL, token, productID string) int {
 		t.Fatal(err)
 	}
 	return out.Data.Stock
+}
+
+func TestConcurrentConfirmSingleDecrement(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test")
+	}
+
+	server := newTestServer(t)
+	defer server.Close()
+	token := login(t, server.URL, "acme", "admin@acme.com", "admin123")
+
+	customerID := createCustomer(t, server.URL, token, fmt.Sprintf("Sale Race %d", time.Now().UnixNano()))
+	sku := fmt.Sprintf("RACE-%d", time.Now().UnixNano())
+	productID := createProduct(t, server.URL, token, sku, 10)
+	saleID := createSale(t, server.URL, token, customerID, productID, 3)
+
+	const contenders = 4
+	type outcome struct{ status int }
+	start := make(chan struct{})
+	results := make(chan outcome, contenders)
+	for range contenders {
+		go func() {
+			<-start
+			req, _ := http.NewRequest(http.MethodPost, server.URL+"/api/v1/sales/"+saleID+"/confirm", nil)
+			req.Header.Set("Authorization", "Bearer "+token)
+			res, err := http.DefaultClient.Do(req)
+			if err != nil {
+				results <- outcome{status: -1}
+				return
+			}
+			defer res.Body.Close()
+			results <- outcome{status: res.StatusCode}
+		}()
+	}
+	close(start)
+
+	ok, conflict := 0, 0
+	for range contenders {
+		switch r := <-results; r.status {
+		case http.StatusOK:
+			ok++
+		case http.StatusConflict:
+			conflict++
+		default:
+			t.Fatalf("unexpected confirm result: status %d", r.status)
+		}
+	}
+	if ok != 1 || conflict != contenders-1 {
+		t.Fatalf("expected exactly one 200 and %d conflicts, got %d ok / %d conflict", contenders-1, ok, conflict)
+	}
+
+	if stock := getProductStock(t, server.URL, token, productID); stock != 7 {
+		t.Fatalf("expected stock decremented exactly once (7), got %d", stock)
+	}
 }

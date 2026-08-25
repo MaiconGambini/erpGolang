@@ -310,6 +310,18 @@ func (s *Service) Confirm(ctx context.Context, tenantID, actorID, id string) (Sa
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	qtx := db.New(tx)
+	locked, err := qtx.GetSaleForUpdate(ctx, db.GetSaleForUpdateParams{
+		ID: pgSale, TenantID: pgTenant,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return SaleDTO{}, errInvalidStatus
+		}
+		return SaleDTO{}, err
+	}
+	if locked.Status != "draft" {
+		return SaleDTO{}, errInvalidStatus
+	}
 
 	items, err := qtx.ListSaleItems(ctx, db.ListSaleItemsParams{
 		SaleID: pgSale, TenantID: pgTenant,
@@ -374,6 +386,18 @@ func (s *Service) Cancel(ctx context.Context, tenantID, actorID, id string) (Sal
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	qtx := db.New(tx)
+	locked, err := qtx.GetSaleForUpdate(ctx, db.GetSaleForUpdateParams{
+		ID: pgSale, TenantID: pgTenant,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return SaleDTO{}, errInvalidStatus
+		}
+		return SaleDTO{}, err
+	}
+	if locked.Status != "confirmed" {
+		return SaleDTO{}, errInvalidStatus
+	}
 
 	items, err := qtx.ListSaleItems(ctx, db.ListSaleItemsParams{
 		SaleID: pgSale, TenantID: pgTenant,
