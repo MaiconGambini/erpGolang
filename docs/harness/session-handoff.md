@@ -29,6 +29,18 @@ exit 0
 
 $ cd frontend && npx playwright test
 15 passed
+
+$ npx @redocly/cli lint contract/openapi.yaml
+valid — 0 errors, 6 warnings (probe/logout ops have no 4XX by design); coverage 40/40 chi routes
+
+$ cd backend && sqlc generate && go build ./... && go test ./internal/sales/...
+sqlc v1.31.1 OK; unit tests pass
+
+$ go test -tags=integration -run TestConcurrent ./internal/sales/   (needs live PG)
+SKIP — database unavailable (Docker daemon down locally); CI exercises it
+
+$ sh -n deploy/scripts/*.sh; python -c yaml.safe_load(deploy-vps.yml); docker compose config (prod)
+SYNTAX_OK_SH · WORKFLOW_YAML_OK · COMPOSE_CONFIG_OK
 ```
 
 ## Thermo-Nuclear Remediation (prior session)
@@ -58,9 +70,9 @@ $ cd frontend && npx playwright test
 ## P1 — Next items
 
 1. **Fly CD** — configure `FLY_API_TOKEN` and verify deploy workflow on `main`
-2. **OpenAPI contract** — `contract/` spec for `/api/v1` (`README` backend task)
-3. **Sales race** — concurrent confirm guard (see `backend/docs/SALES_TRANSACTIONS.md`)
-4. **Ops** — VPS deploy automation in CI; backup/restore drill documented and tested
+2. **OpenAPI contract** — DONE 2026-08-25: `contract/openapi.yaml` (OpenAPI 3.0.3, 40/40 chi routes, `redocly lint` clean, bare-vs-wrapped envelope inconsistency documented)
+3. **Sales race** — DONE 2026-08-25: verified the documented gap was already half-closed (conditional `UpdateSaleStatus`), added `GetSaleForUpdate FOR UPDATE` recheck in `Confirm`/`Cancel`, regression test `TestConcurrentConfirmSingleDecrement`; doc `SALES_TRANSACTIONS.md` synced
+4. **Ops** — DONE 2026-08-25 (modulo live drill): `.github/workflows/deploy-vps.yml` (workflow_dispatch; secrets `VPS_SSH_KEY`/`VPS_HOST`/`VPS_USER` needed before first run), `deploy/scripts/backup.sh` (+verify+retention), `deploy/scripts/restore.sh` (scratch-db default + live-guard), `DEPLOYMENT.md §Backup & Restore Drill` with cron tiers + pass criteria; compose config validated offline
 5. **Portfolio polish** — replace `docs/images/*.svg` with real screenshots; user mutation audit trail
 
 ## Next Best Step

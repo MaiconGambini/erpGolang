@@ -10,7 +10,7 @@
 
 ## Current Active Work
 
-**P1** — Fly CD secret, dashboard drill-down, OpenAPI contract, ops hardening (see `session-handoff.md`).
+**P1** — remaining: Fly CD secret (blocked on operator). DONE 2026-08-25: OpenAPI contract (`contract/openapi.yaml`); sales confirm race guard (`agent-os/specs/2026-08-25-1354-sales-confirm-race/`); VPS deploy automation (`deploy-vps.yml`) + backup/restore scripts (`deploy/scripts/`) + drill runbook (`DEPLOYMENT.md §Backup & Restore Drill`).
 
 ## Completed (prior session)
 
@@ -34,8 +34,25 @@ exit 0 (12 tests)
 
 $ cd frontend && npx playwright test
 15 passed
+$ npx @redocly/cli lint contract/openapi.yaml
+valid — 0 errors, 6 warnings (probe/logout ops have no 4XX response by design)
+
+$ op extraction: contract/openapi.yaml vs backend/internal/**/module.go + app/routes.go
+40/40 registered chi operations covered exactly
+$ cd backend && go build ./... && go test ./internal/sales/...
+exit 0 (unit); integration tag compiles and skips cleanly without Postgres
+
+$ go test -tags=integration -run "TestConcurrentConfirmSingleDecrement|..." ./internal/sales/
+3 SKIP (database unavailable — Docker daemon down); live assertion runs in CI
+$ sh -n deploy/scripts/{backup,restore}.sh && python yaml parse deploy-vps.yml
+SYNTAX_OK_SH / WORKFLOW_YAML_OK
+
+$ GOERP_ENV_FILE=deploy/env/production.env.example docker compose -f deploy/compose/docker-compose.prod.yml config
+COMPOSE_CONFIG_OK (offline validation)
+
+NOT executed (Docker daemon down): first backup run, restore drill — logged as pending in DEPLOYMENT.md drill log
 ```
 
 ## Next Best Action
 
-Set `FLY_API_TOKEN` for Fly CD; start P1 dashboard drill-down or OpenAPI contract; commit when user approves.
+Commit `contract/openapi.yaml` when user approves; next P1 lane: sales confirm race guard (`backend/docs/SALES_TRANSACTIONS.md`) or ops hardening.
