@@ -112,6 +112,8 @@ $ browser: 4 PNG screenshots from seeded stack; /audit page verified
 - Final review-agent retries failed with provider HTTP 429; the earlier design and code reviews were completed, and their critical findings were addressed.
 - Impeccable detector ran once and reported the intentional Inter font warning plus a temporary accent warning; the accent was removed afterward without a second detector run per bounded QA rules.
 
+- GitHub PR E2E run `33428231102` failed before the lifecycle correction in `CreateSaleDialog`; focused local regression passes and requires a rerun after the fix is pushed.
+
 ## Decisions Made
 
 - Keep Inter and the existing slate/blue token world; the detector font warning is an intentional portfolio identity exception.
@@ -120,7 +122,7 @@ $ browser: 4 PNG screenshots from seeded stack; /audit page verified
 
 ## Next Best Step
 
-Review the final diff, commit the frontend polish and screenshot assets, then push to GitHub.
+Push the dialog lifecycle correction, wait for GitHub checks, then merge the PR into `main`.
 
 ## Commands
 
@@ -133,6 +135,7 @@ make validate                             exit 127 (make unavailable)
 Windows baseline equivalents              PASS
 npm run test:e2e                         PASS (21 tests)
 browser authenticated smoke              PASS (dashboard themes/mobile; modal focus/Escape/restore; table overflow)
+npx playwright test e2e/sales.spec.ts --grep tenant-isolation  PASS (1 test)
 ```
 
 No PREVC lifecycle state, quality report, or commit trailer was produced.

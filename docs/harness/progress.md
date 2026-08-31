@@ -76,6 +76,12 @@ $ /audit page renders tenant action table — mutation audit trail confirmed pre
 - Docker Desktop started; `npm run test:e2e` PASS — 21 tests.
 - Authenticated browser smoke PASS: dashboard light/dark at desktop, dashboard dark at mobile, customer modal initial focus + Escape close + focus restoration, and mobile table horizontal overflow.
 
+## PR Verification Correction — 2026-08-31
+
+- GitHub E2E initially failed in `sales tenant isolation` because the sale creation dialog remained mounted while hidden; its customer option conflicted with a broad test locator.
+- Root cause traced to the shared dialog wrapper lifecycle. `CreateSaleDialog` now unmounts the wrapper with `v-if="visible"`.
+- Focused regression: `npx playwright test e2e/sales.spec.ts --grep "tenant B cannot see tenant A sale"` — PASS (1 test).
+
 ## Next Best Action
 
 Review the final diff, commit the frontend polish and screenshot assets, then push to GitHub.

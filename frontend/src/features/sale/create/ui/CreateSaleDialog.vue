@@ -1,5 +1,5 @@
 <template>
-  <AppDialog :visible="visible" title-id="create-title" @close="emit('close')">
+  <AppDialog v-if="visible" :visible="true" title-id="create-title" @close="emit('close')">
       <h2 id="create-title">Nova venda</h2>
       <form class="form" @submit.prevent="onSubmit">
         <label>
