@@ -55,6 +55,27 @@ $ browser: login/dashboard/sales/customer-form captured from seeded stack (goerp
 $ /audit page renders tenant action table — mutation audit trail confirmed present
 ```
 
+## Session Start Failure — 2026-08-31
+
+- Startup command discovered from `Makefile`: `make validate`.
+- Exact failure: `error: command not found: make` (exit 127).
+
+- Windows baseline equivalents passed: `docker compose ... config`; `go test ./...`; `go build ./...`; `npm run typecheck`; `npm run build`.
+
+## Frontend polish extension — 2026-08-31
+
+- Shared semantic theme tokens consumed by shell, login, tables, status badges, errors, and dialogs; hardcoded credential defaults removed from the client bundle.
+- Added shared `AppDialog` with `aria-modal`, Escape close, focus trap/restore, scroll lock, responsive sizing, and reduced-motion transition; migrated all feature dialogs.
+- Completed responsive table overflow, keyboard/focus states, stable sale item keys, Portuguese 404, and status/danger contrast fixes.
+- Added `docs/images/login-light.png` and `docs/images/login-dark.png`; README now presents both themes.
+- Verification: `npm run typecheck` PASS; `npm run test:unit` PASS (14 tests); `npm run build` PASS; browser light/dark login screenshots PASS; `admin123` absent from built assets.
+- Detector run once: Inter warning is an intentional incumbent-font exception; the temporary top accent warning was removed after the scan per bounded QA rules.
+
+## Verification Update — 2026-08-31
+
+- Docker Desktop started; `npm run test:e2e` PASS — 21 tests.
+- Authenticated browser smoke PASS: dashboard light/dark at desktop, dashboard dark at mobile, customer modal initial focus + Escape close + focus restoration, and mobile table horizontal overflow.
+
 ## Next Best Action
 
-Commit `contract/openapi.yaml` when user approves; next P1 lane: sales confirm race guard (`backend/docs/SALES_TRANSACTIONS.md`) or ops hardening.
+Review the final diff, commit the frontend polish and screenshot assets, then push to GitHub.

@@ -1,6 +1,5 @@
 <template>
-  <div v-if="visible && supplier" class="overlay" @click.self="emit('close')">
-    <div class="dialog" role="dialog" aria-labelledby="edit-title">
+  <AppDialog :visible="visible && !!supplier" title-id="edit-title" @close="emit('close')">
       <h2 id="edit-title">Editar fornecedor</h2>
       <form class="form" @submit.prevent="onSubmit">
         <label>
@@ -28,8 +27,7 @@
           <AppButton type="submit" :disabled="isPending">Salvar</AppButton>
         </div>
       </form>
-    </div>
-  </div>
+  </AppDialog>
 </template>
 
 <script setup lang="ts">
@@ -37,6 +35,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import type { Supplier } from '@/entities/supplier/model/types'
 import { editSupplierSchema } from '../model/schema'
 import { useUpdateSupplier } from '../model/use-edit-supplier'
+import AppDialog from '@/shared/ui/AppDialog.vue'
 import AppButton from '@/shared/ui/AppButton.vue'
 import PartyFormFields, { type PartyFormState } from '@/shared/ui/PartyFormFields.vue'
 import { toPartyInput } from '@/shared/lib/party-payload'
@@ -125,29 +124,10 @@ function onSubmit() {
 </script>
 
 <style scoped>
-.overlay {
-  align-items: center;
-  background: rgba(15, 23, 42, 0.45);
-  display: flex;
-  inset: 0;
-  justify-content: center;
-  position: fixed;
-  z-index: 50;
-}
-
-.dialog {
-  background: var(--color-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-soft);
-  max-width: 520px;
-  max-height: 90vh;
-  overflow-y: auto;
-  padding: 24px;
-  width: 100%;
-}
 
 h2 {
   font-size: 18px;
+  font-weight: 650;
   margin: 0 0 20px;
 }
 
@@ -181,7 +161,7 @@ input:not([type]) {
 
 .field-error,
 .submit-error {
-  color: #dc2626;
+  color: var(--color-danger);
   font-size: 12px;
 }
 

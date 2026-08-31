@@ -1,6 +1,5 @@
 <template>
-  <div v-if="visible" class="overlay" @click.self="emit('close')">
-    <div class="dialog" role="dialog" aria-labelledby="create-title">
+  <AppDialog :visible="visible" title-id="create-title" @close="emit('close')">
       <h2 id="create-title">Novo produto</h2>
       <form class="form" @submit.prevent="onSubmit">
         <label>
@@ -42,8 +41,7 @@
           <AppButton type="submit" :disabled="isPending">Salvar</AppButton>
         </div>
       </form>
-    </div>
-  </div>
+  </AppDialog>
 </template>
 
 <script setup lang="ts">
@@ -51,8 +49,8 @@ import { reactive, ref, watch } from 'vue'
 import { createProductSchema } from '../model/schema'
 import { useCreateProduct } from '../model/use-create-product'
 import { getApiErrorMessage } from '@/shared/api/errors'
+import AppDialog from '@/shared/ui/AppDialog.vue'
 import AppButton from '@/shared/ui/AppButton.vue'
-
 const props = defineProps<{ visible: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
@@ -128,27 +126,10 @@ function onSubmit() {
 </script>
 
 <style scoped>
-.overlay {
-  align-items: center;
-  background: rgba(15, 23, 42, 0.45);
-  display: flex;
-  inset: 0;
-  justify-content: center;
-  position: fixed;
-  z-index: 50;
-}
-
-.dialog {
-  background: var(--color-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-soft);
-  max-width: 480px;
-  padding: 24px;
-  width: 100%;
-}
 
 h2 {
   font-size: 18px;
+  font-weight: 650;
   margin: 0 0 20px;
 }
 
@@ -182,7 +163,7 @@ input:not([type]) {
 
 .field-error,
 .submit-error {
-  color: #dc2626;
+  color: var(--color-danger);
   font-size: 12px;
 }
 

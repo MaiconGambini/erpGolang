@@ -1,7 +1,7 @@
 <template>
   <section class="panel">
     <div class="toolbar">
-      <input v-model="searchInput" placeholder="Buscar por nome, documento ou e-mail" />
+      <input v-model="searchInput" aria-label="Buscar clientes" placeholder="Buscar por nome, documento ou e-mail" />
     </div>
     <TableSkeleton v-if="isLoading" :cols="5" />
     <p v-else-if="isError" class="state error">Erro ao carregar clientes</p>
@@ -107,25 +107,38 @@ const total = computed(() => data.value?.pagination.total ?? 0)
 .panel {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 10px;
-  overflow: hidden;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow-x: auto;
 }
 
 .toolbar {
+  background: var(--color-surface-muted);
   display: flex;
   gap: 10px;
-  padding: 12px;
+  padding: 16px;
 }
 
 input {
-  border: 1px solid var(--color-border);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
+  color: var(--color-text-primary);
   flex: 1;
-  padding: 8px 12px;
+  min-height: 40px;
+  outline: none;
+  padding: 0 12px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input:focus {
+  border-color: var(--color-brand);
+  box-shadow: var(--focus-ring);
 }
 
 table {
   border-collapse: collapse;
+  min-width: 620px;
   width: 100%;
 }
 
@@ -133,8 +146,26 @@ th,
 td {
   border-top: 1px solid var(--color-border);
   font-size: 13px;
-  padding: 12px 16px;
+  padding: 13px 16px;
   text-align: left;
+}
+
+th {
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+tbody tr:hover {
+  background: var(--color-surface-muted);
 }
 
 .actions-col {
@@ -145,28 +176,52 @@ td {
 .link {
   background: none;
   border: 0;
+  border-radius: var(--radius-sm);
   color: var(--color-brand);
   cursor: pointer;
   font: inherit;
   font-size: 13px;
-  margin-right: 8px;
-  padding: 0;
+  margin-right: 4px;
+  min-height: 32px;
+  padding: 0 5px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.link:hover {
+  background: var(--color-brand-soft);
+  color: var(--color-brand-hover);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.link:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .link.danger {
-  color: #dc2626;
+  color: var(--color-danger);
+}
+
+.link.danger:hover {
+  background: var(--color-danger-soft);
+  color: var(--color-danger-strong);
 }
 
 .badge {
-  background: #dcfce7;
+  background: var(--color-success-soft);
   border-radius: 999px;
-  color: #15803d;
-  padding: 3px 10px;
+  color: var(--color-success-strong);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1;
+  padding: 6px 9px;
+  white-space: nowrap;
 }
 
 .badge.inactive {
-  background: #f3f4f6;
-  color: #6b7280;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
 }
 
 .state {
@@ -175,25 +230,35 @@ td {
 }
 
 .state.error {
-  color: #dc2626;
+  color: var(--color-danger);
 }
 
 .pagination {
   align-items: center;
+  background: var(--color-surface-muted);
   border-top: 1px solid var(--color-border);
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   justify-content: flex-end;
   padding: 12px 16px;
 }
 
 .pagination button {
-  background: transparent;
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
   cursor: pointer;
   font: inherit;
-  padding: 6px 12px;
+  min-height: 34px;
+  padding: 0 12px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.pagination button:hover:not(:disabled) {
+  background: var(--color-surface-raised);
+  border-color: var(--color-border-strong);
 }
 
 .pagination button:disabled {

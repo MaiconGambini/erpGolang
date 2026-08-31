@@ -48,16 +48,21 @@ goERP uses a restrained light product UI: white, neutral grays, and blue for pri
 - Cards/dialogs: 10-12px.
 - Shadows are soft and minimal.
 
-## PrimeVue Component Choices
+## Component Choices
 
-- Table: `DataTable`.
-- Text input: `InputText`.
-- Select: `Dropdown` or current PrimeVue equivalent.
-- Date: `Calendar` or current PrimeVue equivalent.
-- Modal: `Dialog`.
-- Notification: `Toast`.
-- Loading: `Skeleton` or `ProgressSpinner`.
+- Data tables: semantic HTML tables with responsive horizontal scrolling.
+- Text input/select: native controls styled from semantic tokens.
+- Modal: shared `AppDialog` wrapper with accessible focus management.
+- Loading/empty: shared `TableSkeleton` and `EmptyState` components.
 
-## Deferred
+## Themes
 
-Dark mode is not part of MVP unless explicitly requested.
+- Light mode is the default: white surfaces, neutral canvas, and blue action states.
+- Dark mode is available through the `.dark` token override, persists in `localStorage`, and follows the system preference on first visit.
+- Status, danger, focus, overlay, and raised-surface tokens are semantic and must be consumed instead of hardcoded component colors.
+
+## Shared UI
+
+- `AppButton` — primary action with disabled, hover, active, and focus states.
+- `AppDialog` — modal semantics, Escape close, focus trap, focus restore, scroll lock, and reduced-motion transition.
+- `EmptyState` and `TableSkeleton` — shared empty and loading states for data surfaces.

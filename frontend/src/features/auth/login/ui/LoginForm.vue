@@ -2,17 +2,17 @@
   <form class="form" @submit.prevent="onSubmit">
     <label>
       Empresa
-      <input v-model="tenantSlug" placeholder="acme" required />
+      <input v-model="tenantSlug" autocomplete="organization" placeholder="acme" required />
     </label>
     <label>
       E-mail
-      <input v-model="email" type="email" placeholder="admin@acme.com" required />
+      <input v-model="email" autocomplete="username" type="email" placeholder="admin@acme.com" required />
     </label>
     <label>
       Senha
-      <input v-model="password" type="password" placeholder="Sua senha" required />
+      <input v-model="password" autocomplete="current-password" type="password" placeholder="Sua senha" required />
     </label>
-    <p v-if="error" class="error">{{ error }}</p>
+    <p v-if="error" class="error" role="alert" aria-live="assertive">{{ error }}</p>
     <AppButton type="submit" :disabled="isPending">Entrar</AppButton>
   </form>
 </template>
@@ -22,9 +22,9 @@ import { ref } from 'vue'
 import AppButton from '@/shared/ui/AppButton.vue'
 import { useLogin } from '../model/use-login'
 
-const tenantSlug = ref('acme')
-const email = ref('admin@acme.com')
-const password = ref('admin123')
+const tenantSlug = ref('')
+const email = ref('')
+const password = ref('')
 const error = ref('')
 
 const { mutate, isPending } = useLogin()
@@ -42,7 +42,7 @@ function onSubmit() {
 .form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
 label {
@@ -50,19 +50,36 @@ label {
   display: flex;
   flex-direction: column;
   font-size: 13px;
-  gap: 6px;
+  font-weight: 600;
+  gap: 7px;
 }
 
 input {
-  border: 1px solid #cbd5e1;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
-  font: inherit;
-  padding: 10px 12px;
+  color: var(--color-text-primary);
+  min-height: 44px;
+  outline: none;
+  padding: 0 12px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+input:focus {
+  background: var(--color-surface);
+  border-color: var(--color-brand);
+  box-shadow: var(--focus-ring);
 }
 
 .error {
-  color: #dc2626;
+  align-items: flex-start;
+  background: var(--color-danger-soft);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 24%, transparent);
+  border-radius: var(--radius-md);
+  color: var(--color-danger-strong);
+  display: flex;
   font-size: 13px;
   margin: 0;
+  padding: 10px 12px;
 }
 </style>

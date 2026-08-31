@@ -1,6 +1,5 @@
 <template>
-  <div v-if="visible && user" class="overlay" @click.self="emit('close')">
-    <div class="dialog" role="dialog" aria-labelledby="edit-user-title">
+  <AppDialog v-if="visible && user" :visible="true" title-id="edit-user-title" @close="emit('close')">
       <h2 id="edit-user-title">Editar usuário</h2>
       <form class="form" @submit.prevent="onSubmit">
         <label>
@@ -30,14 +29,14 @@
           <AppButton type="submit" :disabled="isPending">Salvar</AppButton>
         </div>
       </form>
-    </div>
-  </div>
+  </AppDialog>
 </template>
 
 <script setup lang="ts">
 import { reactive, ref, watch } from 'vue'
 import type { User } from '@/entities/user/model/types'
 import { useUpdateUser } from '../model/use-edit-user'
+import AppDialog from '@/shared/ui/AppDialog.vue'
 import AppButton from '@/shared/ui/AppButton.vue'
 import { getApiErrorMessage } from '@/shared/api/errors'
 
@@ -89,27 +88,10 @@ function onSubmit() {
 </script>
 
 <style scoped>
-.overlay {
-  align-items: center;
-  background: rgba(15, 23, 42, 0.45);
-  display: flex;
-  inset: 0;
-  justify-content: center;
-  position: fixed;
-  z-index: 50;
-}
-
-.dialog {
-  background: var(--color-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-soft);
-  max-width: 480px;
-  padding: 24px;
-  width: 100%;
-}
 
 h2 {
   font-size: 18px;
+  font-weight: 650;
   margin: 0 0 20px;
 }
 
@@ -134,19 +116,29 @@ label.checkbox {
 
 input,
 select {
-  border: 1px solid var(--color-border);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
+  color: var(--color-text-primary);
   font: inherit;
+  min-height: 40px;
+  outline: none;
   padding: 8px 12px;
 }
 
+input:focus,
+select:focus {
+  border-color: var(--color-brand);
+  box-shadow: var(--focus-ring);
+}
+
 input:disabled {
-  background: #f9fafb;
+  background: var(--color-surface-muted);
   color: var(--color-text-muted);
 }
 
 .submit-error {
-  color: #dc2626;
+  color: var(--color-danger);
   font-size: 12px;
   margin: 0;
 }

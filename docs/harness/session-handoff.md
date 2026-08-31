@@ -87,3 +87,52 @@ $ browser: 4 PNG screenshots from seeded stack; /audit page verified
 
 1. Pick first P1 item (Fly CD or dashboard drill-down)
 2. Commit P0 doc + harness updates when user approves (suggested groups in `docs/harness/sprint-contract.md`)
+
+## Verified Now — 2026-08-31
+
+- `npm run typecheck` — PASS.
+- `npm run test:unit` — PASS, 14 tests.
+- `npm run build` — PASS.
+- Browser smoke — PASS for the login surface at desktop size in light and dark themes; fields are empty, placeholders render, and theme persistence works.
+- `docs/images/login-light.png` and `docs/images/login-dark.png` were captured and read back as valid PNG assets.
+- `admin123` is absent from the built frontend assets.
+
+## Changed This Session
+
+- Continued the incumbent slate/blue ERP polish without redesigning the visual world.
+- Added semantic light/dark tokens, stronger focus rings, themed controls, shell navigation icons, user avatar, refined login, table surfaces, responsive horizontal table scrolling, status badges, stable sale item keys, and Portuguese 404 styling.
+- Added shared `frontend/src/shared/ui/AppDialog.vue` with modal semantics, Escape close, focus trap/restore, scroll lock, responsive sizing, and reduced-motion transition; migrated all feature dialogs.
+- Updated `README.md` with light/dark login screenshots and synchronized `docs/DESIGN_SYSTEM.md`.
+
+## Broken Or Unverified
+
+- No runtime blocker remains after Docker Desktop started; E2E and authenticated browser smoke completed.
+- No measured gate report exists under `docs/harness/quality/*.json`; coverage, mutation, regression, E2E, complexity, boundary, and security metrics remain unavailable.
+- `make validate` is unavailable because `make` is not installed; Windows-equivalent baseline checks passed.
+- Final review-agent retries failed with provider HTTP 429; the earlier design and code reviews were completed, and their critical findings were addressed.
+- Impeccable detector ran once and reported the intentional Inter font warning plus a temporary accent warning; the accent was removed afterward without a second detector run per bounded QA rules.
+
+## Decisions Made
+
+- Keep Inter and the existing slate/blue token world; the detector font warning is an intentional portfolio identity exception.
+- Keep README theme screenshots focused on the login surface; authenticated dashboard light/dark and mobile states were inspected in-browser but are not added as static assets.
+- Do not commit or push automatically; the worktree remains operator-owned.
+
+## Next Best Step
+
+Review the final diff, commit the frontend polish and screenshot assets, then push to GitHub.
+
+## Commands
+
+```text
+npm run typecheck                         PASS
+npm run test:unit                         PASS (14 tests)
+npm run build                             PASS
+node .../impeccable/scripts/detect.mjs    exit 2 (2 warnings; see Broken Or Unverified)
+make validate                             exit 127 (make unavailable)
+Windows baseline equivalents              PASS
+npm run test:e2e                         PASS (21 tests)
+browser authenticated smoke              PASS (dashboard themes/mobile; modal focus/Escape/restore; table overflow)
+```
+
+No PREVC lifecycle state, quality report, or commit trailer was produced.

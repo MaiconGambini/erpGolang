@@ -27,6 +27,7 @@
         :tabindex="metric.clickable ? 0 : undefined"
         @click="metric.clickable ? onMetricClick(metric) : undefined"
         @keydown.enter="metric.clickable ? onMetricClick(metric) : undefined"
+        @keydown.space.prevent="metric.clickable ? onMetricClick(metric) : undefined"
       >
         {{ metric.label }}
         <strong v-if="isPending" class="skeleton" aria-hidden="true" />
@@ -392,7 +393,7 @@ strong {
 }
 
 .error {
-  color: var(--color-danger, #b91c1c);
+  color: var(--color-danger);
   margin: 0 0 16px;
 }
 
@@ -425,6 +426,6 @@ strong {
 }
 
 .chart-state.error {
-  color: #dc2626;
+  color: var(--color-danger);
 }
 </style>

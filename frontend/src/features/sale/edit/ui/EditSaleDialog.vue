@@ -1,6 +1,5 @@
 <template>
-  <div v-if="visible" class="overlay" @click.self="emit('close')">
-    <div class="dialog" role="dialog" aria-labelledby="edit-title">
+  <AppDialog :visible="visible" title-id="edit-title" @close="emit('close')">
       <h2 id="edit-title">Editar venda</h2>
       <p v-if="isLoading" class="state">Carregando...</p>
       <p v-else-if="isError" class="state error">Erro ao carregar venda</p>
@@ -19,7 +18,7 @@
 
         <fieldset class="items">
           <legend>Itens *</legend>
-          <div v-for="(row, index) in form.items" :key="index" class="item-row">
+          <div v-for="(row, index) in form.items" :key="row.key" class="item-row">
             <select v-model="row.productId" required>
               <option value="">Produto...</option>
               <option v-for="p in products" :key="p.id" :value="p.id">
@@ -46,8 +45,7 @@
           <AppButton type="submit" :disabled="isPending">Salvar rascunho</AppButton>
         </div>
       </form>
-    </div>
-  </div>
+  </AppDialog>
 </template>
 
 <script setup lang="ts">
@@ -59,15 +57,18 @@ import { getSale } from '@/entities/sale/api/sale.api'
 import { createSaleSchema } from '@/entities/sale/model/schemas'
 import { useEditSale } from '../model/use-edit-sale'
 import { getApiErrorMessage } from '@/shared/api/errors'
+import AppDialog from '@/shared/ui/AppDialog.vue'
 import AppButton from '@/shared/ui/AppButton.vue'
-
 const props = defineProps<{ visible: boolean; saleId: string | null }>()
 const emit = defineEmits<{ close: [] }>()
+
+let itemKey = 0
+const newItem = () => ({ key: `sale-item-${itemKey++}`, productId: '', quantity: 1 })
 
 const form = reactive({
   customerId: '',
   notes: '',
-  items: [{ productId: '', quantity: 1 }],
+  items: [newItem()],
 })
 const errors = ref<Record<string, string>>({})
 const submitError = ref('')
@@ -103,11 +104,12 @@ watch(
       form.customerId = currentSale.customerId
       form.notes = currentSale.notes ?? ''
       form.items = (currentSale.items ?? []).map((item) => ({
+        key: item.id,
         productId: item.productId,
         quantity: item.quantity,
       }))
       if (!form.items.length) {
-        form.items = [{ productId: '', quantity: 1 }]
+        form.items = [newItem()]
       }
       errors.value = {}
       submitError.value = ''
@@ -116,7 +118,7 @@ watch(
 )
 
 function addRow() {
-  form.items.push({ productId: '', quantity: 1 })
+  form.items.push(newItem())
 }
 
 function removeRow(index: number) {
@@ -159,29 +161,10 @@ function onSubmit() {
 </script>
 
 <style scoped>
-.overlay {
-  align-items: center;
-  background: rgba(15, 23, 42, 0.45);
-  display: flex;
-  inset: 0;
-  justify-content: center;
-  position: fixed;
-  z-index: 50;
-}
-
-.dialog {
-  background: var(--color-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-soft);
-  max-width: 560px;
-  max-height: 90vh;
-  overflow-y: auto;
-  padding: 24px;
-  width: 100%;
-}
 
 h2 {
   font-size: 18px;
+  font-weight: 650;
   margin: 0 0 20px;
 }
 
@@ -191,7 +174,7 @@ h2 {
 }
 
 .state.error {
-  color: #dc2626;
+  color: var(--color-danger);
 }
 
 .form {
@@ -250,12 +233,12 @@ input {
 }
 
 .link.danger {
-  color: #dc2626;
+  color: var(--color-danger);
 }
 
 .field-error,
 .submit-error {
-  color: #dc2626;
+  color: var(--color-danger);
   font-size: 12px;
 }
 

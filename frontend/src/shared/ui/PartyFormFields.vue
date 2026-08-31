@@ -118,7 +118,7 @@ input {
 }
 
 .field-error {
-  color: #dc2626;
+  color: var(--color-danger);
   font-size: 12px;
 }
 </style>

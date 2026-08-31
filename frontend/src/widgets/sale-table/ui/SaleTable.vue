@@ -1,7 +1,7 @@
 <template>
   <section class="panel">
     <div class="toolbar">
-      <input v-model="searchInput" placeholder="Buscar por cliente" />
+      <input v-model="searchInput" aria-label="Buscar vendas por cliente" placeholder="Buscar por cliente" />
       <select v-model="statusFilter">
         <option value="">Todos os status</option>
         <option value="draft">Rascunho</option>
@@ -238,15 +238,17 @@ defineExpose({ exportParams })
 .panel {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 10px;
-  overflow: hidden;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow-x: auto;
 }
 
 .toolbar {
+  background: var(--color-surface-muted);
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  padding: 12px;
+  padding: 16px;
 }
 
 .date-field {
@@ -254,6 +256,7 @@ defineExpose({ exportParams })
   display: flex;
   flex-direction: column;
   font-size: 12px;
+  font-weight: 600;
   gap: 4px;
 }
 
@@ -263,17 +266,35 @@ defineExpose({ exportParams })
 
 input,
 select {
-  border: 1px solid var(--color-border);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
-  padding: 8px 12px;
+  color: var(--color-text-primary);
+  font: inherit;
+  min-height: 40px;
+  outline: none;
+  padding: 0 12px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 input {
   flex: 1;
+  min-width: 180px;
+}
+
+select {
+  min-width: 150px;
+}
+
+input:focus,
+select:focus {
+  border-color: var(--color-brand);
+  box-shadow: var(--focus-ring);
 }
 
 table {
   border-collapse: collapse;
+  min-width: 860px;
   width: 100%;
 }
 
@@ -281,8 +302,26 @@ th,
 td {
   border-top: 1px solid var(--color-border);
   font-size: 13px;
-  padding: 12px 16px;
+  padding: 13px 16px;
   text-align: left;
+}
+
+th {
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+tbody tr:hover {
+  background: var(--color-surface-muted);
 }
 
 .actions-col {
@@ -293,42 +332,65 @@ td {
 .link {
   background: none;
   border: 0;
+  border-radius: var(--radius-sm);
   color: var(--color-brand);
   cursor: pointer;
   font: inherit;
   font-size: 13px;
-  margin-right: 8px;
-  padding: 0;
+  margin-right: 4px;
+  min-height: 32px;
+  padding: 0 5px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.link:hover {
+  background: var(--color-brand-soft);
+  color: var(--color-brand-hover);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.link:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .link.danger {
-  color: #dc2626;
+  color: var(--color-danger);
+}
+
+.link.danger:hover {
+  background: var(--color-danger-soft);
+  color: var(--color-danger-strong);
 }
 
 .link:disabled {
-  opacity: 0.5;
   cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .badge {
   border-radius: 999px;
   font-size: 12px;
-  padding: 3px 10px;
+  font-weight: 650;
+  line-height: 1;
+  padding: 6px 9px;
+  white-space: nowrap;
 }
 
 .badge.draft {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--color-warning-soft);
+  color: var(--color-warning-strong);
 }
 
 .badge.confirmed {
-  background: #dcfce7;
-  color: #15803d;
+  background: var(--color-success-soft);
+  color: var(--color-success-strong);
 }
 
 .badge.cancelled {
-  background: #f3f4f6;
-  color: #6b7280;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
 }
 
 .state {
@@ -337,25 +399,35 @@ td {
 }
 
 .state.error {
-  color: #dc2626;
+  color: var(--color-danger);
 }
 
 .pagination {
   align-items: center;
+  background: var(--color-surface-muted);
   border-top: 1px solid var(--color-border);
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   justify-content: flex-end;
   padding: 12px 16px;
 }
 
 .pagination button {
-  background: transparent;
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
   cursor: pointer;
   font: inherit;
-  padding: 6px 12px;
+  min-height: 34px;
+  padding: 0 12px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.pagination button:hover:not(:disabled) {
+  background: var(--color-surface-raised);
+  border-color: var(--color-border-strong);
 }
 
 .pagination button:disabled {

@@ -1,6 +1,5 @@
 <template>
-  <div v-if="visible && customer" class="overlay" @click.self="emit('close')">
-    <div class="dialog" role="dialog" aria-labelledby="delete-title">
+  <AppDialog v-if="visible && customer" :visible="true" title-id="delete-title" size="sm" @close="emit('close')">
       <h2 id="delete-title">Excluir cliente</h2>
       <p>
         Tem certeza que deseja excluir <strong>{{ customer.name }}</strong>?
@@ -13,8 +12,7 @@
           Excluir
         </button>
       </div>
-    </div>
-  </div>
+  </AppDialog>
 </template>
 
 <script setup lang="ts">
@@ -22,7 +20,7 @@ import { ref, watch } from 'vue'
 import type { Customer } from '@/entities/customer/model/types'
 import { getApiErrorMessage } from '@/shared/api/errors'
 import { useDeleteCustomer } from '../model/use-delete-customer'
-
+import AppDialog from '@/shared/ui/AppDialog.vue'
 const props = defineProps<{ visible: boolean; customer: Customer | null }>()
 const emit = defineEmits<{ close: [] }>()
 
@@ -45,28 +43,11 @@ function onConfirm() {
 </script>
 
 <style scoped>
-.overlay {
-  align-items: center;
-  background: rgba(15, 23, 42, 0.45);
-  display: flex;
-  inset: 0;
-  justify-content: center;
-  position: fixed;
-  z-index: 50;
-}
-
-.dialog {
-  background: var(--color-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-soft);
-  max-width: 420px;
-  padding: 24px;
-  width: 100%;
-}
 
 h2 {
   font-size: 18px;
-  margin: 0 0 12px;
+  font-weight: 650;
+  margin: 0 0 20px;
 }
 
 p {
@@ -75,7 +56,7 @@ p {
 }
 
 .submit-error {
-  color: #dc2626;
+  color: var(--color-danger);
   font-size: 13px;
 }
 
@@ -99,9 +80,9 @@ p {
 }
 
 .danger {
-  background: #dc2626;
+  background: var(--color-danger);
   border: 0;
-  color: #fff;
+  color: var(--color-text-on-danger);
   font-weight: 600;
 }
 

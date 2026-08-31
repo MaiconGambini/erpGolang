@@ -21,6 +21,10 @@ Auth, catalog CRUD, sales with stock control, RBAC, CSV/PDF reports, and dashboa
 |----------------|---------------------------|
 | ![Sales](docs/images/sales.png) | ![Customer form](docs/images/customer-form.png) |
 
+| Login — light mode | Login — dark mode |
+|--------------------|-------------------|
+| ![Login light mode](docs/images/login-light.png) | ![Login dark mode](docs/images/login-dark.png) |
+
 ---
 
 ## For reviewers (2 minutes)

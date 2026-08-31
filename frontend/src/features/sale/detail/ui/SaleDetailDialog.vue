@@ -1,6 +1,5 @@
 <template>
-  <div v-if="visible" class="overlay" @click.self="emit('close')">
-    <div class="dialog" role="dialog" aria-labelledby="detail-title">
+  <AppDialog :visible="visible" title-id="detail-title" size="lg" @close="emit('close')">
       <h2 id="detail-title">Detalhes da venda</h2>
       <p v-if="isLoading" class="state">Carregando...</p>
       <p v-else-if="isError" class="state error">Erro ao carregar venda</p>
@@ -66,8 +65,7 @@
           </AppButton>
         </div>
       </template>
-    </div>
-  </div>
+  </AppDialog>
 </template>
 
 <script setup lang="ts">
@@ -77,6 +75,7 @@ import { getSale } from '@/entities/sale/api/sale.api'
 import { downloadSalePdf } from '@/entities/reports/api/reports.api'
 import type { SaleStatus } from '@/entities/sale/model/types'
 import { useSessionStore } from '@/entities/session/model/session.store'
+import AppDialog from '@/shared/ui/AppDialog.vue'
 import AppButton from '@/shared/ui/AppButton.vue'
 import { downloadBlob } from '@/shared/lib/download'
 import { canWrite } from '@/shared/lib/roles'
@@ -132,29 +131,10 @@ async function onDownloadPdf() {
 </script>
 
 <style scoped>
-.overlay {
-  align-items: center;
-  background: rgba(15, 23, 42, 0.45);
-  display: flex;
-  inset: 0;
-  justify-content: center;
-  position: fixed;
-  z-index: 50;
-}
-
-.dialog {
-  background: var(--color-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-soft);
-  max-height: 90vh;
-  max-width: 640px;
-  overflow-y: auto;
-  padding: 24px;
-  width: 100%;
-}
 
 h2 {
   font-size: 18px;
+  font-weight: 650;
   margin: 0 0 20px;
 }
 
@@ -169,7 +149,7 @@ h3 {
 }
 
 .state.error {
-  color: #dc2626;
+  color: var(--color-danger);
 }
 
 .meta {
@@ -203,23 +183,25 @@ dd {
   border-radius: 999px;
   display: inline-block;
   font-size: 12px;
-  padding: 3px 10px;
+  font-weight: 650;
+  line-height: 1;
+  padding: 6px 9px;
   width: fit-content;
 }
 
 .badge.draft {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--color-warning-soft);
+  color: var(--color-warning-strong);
 }
 
 .badge.confirmed {
-  background: #dcfce7;
-  color: #15803d;
+  background: var(--color-success-soft);
+  color: var(--color-success-strong);
 }
 
 .badge.cancelled {
-  background: #f3f4f6;
-  color: #6b7280;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
 }
 
 .notes {
