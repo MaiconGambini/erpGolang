@@ -1,0 +1,48 @@
+/* Shared skeleton shimmer — base only (no size); callers set dimensions. */
+.skeleton {
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+  background: var(--color-surface-muted);
+  border-radius: 6px;
+  display: block;
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+.table-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 10px 0;
+}
+
+.table-skeleton .sk-row {
+  display: flex;
+  gap: 16px;
+}
+
+.table-skeleton .sk-cell {
+  flex: 1;
+  height: 14px;
+}
+
+.table-skeleton .sk-row .sk-cell:first-child {
+  flex: 1.4;
+}
+
+.table-skeleton .sk-row .sk-cell:last-child {
+  flex: 0.5;
+}

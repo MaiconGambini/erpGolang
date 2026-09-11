@@ -1,0 +1,100 @@
+name: Deploy VPS
+
+# Profile A (DEPLOYMENT.md): full-stack deploy to a VPS running
+# deploy/compose/docker-compose.prod.yml + Caddy. Manual trigger only —
+# production rollouts stay operator-approved (harness invariant: no auto-push).
+#
+# Required secrets:
+#   VPS_SSH_KEY    private key allowed to SSH the deploy user
+#   VPS_HOST       hostname or IP of the VPS
+#   VPS_USER       deploy user (needs docker group + write access to VPS_DEPLOY_DIR)
+#   VPS_DOMAIN     public domain used by the deployment (passed via action environment)
+#   VPS_FINGERPRINT SSH host key fingerprint required by ssh-action
+# Optional secrets (defaults shown):
+#   VPS_PORT          22
+#   VPS_DEPLOY_DIR    /opt/goerp
+# The VPS itself holds GOERP_ENV_FILE (/etc/goerp/goerp.env); VPS_DOMAIN is
+# passed to the remote script through the action environment.
+
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Validate VPS fingerprint
+        env:
+          VPS_FINGERPRINT: ${{ secrets.VPS_FINGERPRINT }}
+        run: |
+          if [[ -z "${VPS_FINGERPRINT:-}" ]]; then
+            echo "[deploy] ERROR: VPS_FINGERPRINT is required" >&2
+            exit 1
+          fi
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f
+        env:
+          VPS_DEPLOY_DIR: ${{ secrets.VPS_DEPLOY_DIR || '/opt/goerp' }}
+          VPS_DOMAIN: ${{ secrets.VPS_DOMAIN }}
+          DEPLOY_SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          fingerprint: ${{ secrets.VPS_FINGERPRINT }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          envs: VPS_DEPLOY_DIR,VPS_DOMAIN,DEPLOY_SHA
+          script_stop: true
+          script: |
+            set -euo pipefail
+            if [[ -z "$VPS_DEPLOY_DIR" || "$VPS_DEPLOY_DIR" != /* || "$VPS_DEPLOY_DIR" == */../* || "$VPS_DEPLOY_DIR" == */.. ]]; then
+              echo "[deploy] ERROR: VPS_DEPLOY_DIR must be an absolute path without '..' components" >&2
+              exit 1
+            fi
+            if [[ -z "$VPS_DOMAIN" || ! "$VPS_DOMAIN" =~ ^[A-Za-z0-9.-]+$ ]]; then
+              echo "[deploy] ERROR: VPS_DOMAIN must be a nonempty DNS-safe domain" >&2
+              exit 1
+            fi
+            cd -- "$VPS_DEPLOY_DIR"
+            export GOERP_ENV_FILE=/etc/goerp/goerp.env
+            export GOERP_DOMAIN="$VPS_DOMAIN"
+            if [[ -z "${DEPLOY_SHA:-}" || ! "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "[deploy] ERROR: DEPLOY_SHA must be a full commit SHA" >&2
+              exit 1
+            fi
+            git fetch --no-tags origin main
+            if ! verified_sha="$(git rev-parse --verify "${DEPLOY_SHA}^{commit}")"; then
+              echo "[deploy] ERROR: requested deploy commit could not be verified" >&2
+              exit 1
+            fi
+            if [[ "$verified_sha" != "$DEPLOY_SHA" ]]; then
+              echo "[deploy] ERROR: verified deploy commit does not match workflow SHA" >&2
+              exit 1
+            fi
+            git checkout --detach --force "$DEPLOY_SHA"
+
+            echo "[deploy] building images"
+            docker compose -f deploy/compose/docker-compose.prod.yml build
+
+            echo "[deploy] running migration job"
+            docker compose -f deploy/compose/docker-compose.prod.yml run --rm migrate
+
+            echo "[deploy] rolling services"
+            docker compose -f deploy/compose/docker-compose.prod.yml up -d --wait
+
+            echo "[deploy] health check"
+            for i in $(seq 1 12); do
+              if curl -fsS http://127.0.0.1:8080/healthz >/dev/null 2>&1; then
+                echo "[deploy] healthy"; exit 0
+              fi
+              sleep 5
+            done
+            echo "[deploy] ERROR: backend unhealthy after rollout" >&2
+            exit 1

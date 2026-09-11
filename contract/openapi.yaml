@@ -1,0 +1,1659 @@
+openapi: 3.0.3
+info:
+  license:
+    name: MIT
+  title: goERP API
+  version: 1.0.0
+  description: |
+    Multi-tenant ERP REST API (/api/v1).
+
+    ## Conventions (as implemented — this spec documents reality, not intent)
+    - Success envelope: most responses are `{"data": <payload>}`.
+      **Exceptions:** single-item customer and supplier operations return the object bare,
+      without the `data` wrapper.
+    - Paginated lists: `{"data": [...], "pagination": {"limit","offset","total"}}`.
+    - Errors: `{"error": {"code": "...", "message": "...", "details": {...}?}}`.
+    - Money is a decimal **string** with 2 fraction digits (`"1234.56"`), never a JSON number.
+    - Timestamps are RFC3339 strings; report dates are `YYYY-MM-DD`.
+    - All business routes require `Authorization: Bearer <accessToken>` and are scoped to the
+      tenant embedded in the JWT. Cross-tenant rows are invisible.
+    - Role matrix: `admin > manager > operator > viewer`.
+    - Deletes are soft (`deleted_at` set); soft-deleted rows read as 404 afterwards.
+
+    ## Global error codes
+    | Code | Status | Meaning |
+    |------|--------|---------|
+    | UNAUTHORIZED | 401 | missing/invalid bearer token, missing tenant context, bad credentials, missing/invalid refresh token |
+    | FORBIDDEN | 403 | authenticated but role insufficient for the route |
+    | RATE_LIMITED | 429 | login rate limit exceeded (5 attempts / 15 min per source IP) |
+    | INVALID_JSON | 400 | request body is not valid JSON |
+    | VALIDATION_ERROR | 400 | body failed field validation (message carries detail) |
+    | NOT_FOUND | 404 | entity missing, soft-deleted, or outside tenant |
+    | DUPLICATE_DOCUMENT | 409 | party document unique per tenant violated |
+    | DUPLICATE_SKU | 409 | product sku unique per tenant violated |
+    | CUSTOMER_HAS_SALES | 409 | customer delete blocked by linked sales |
+    | INVALID_STATUS | 409 | sale state transition not allowed |
+    | INSUFFICIENT_STOCK | 409 | confirming a sale would drive stock negative |
+    | INTERNAL_ERROR | 500 | unexpected server failure |
+
+servers:
+  - url: http://localhost:8080
+    description: Local backend (docker-compose dev / `go run ./cmd/api`)
+
+tags:
+  - name: System
+    description: Liveness, readiness, and descriptor endpoints.
+  - name: Auth
+    description: Login, token rotation, logout, and current profile.
+  - name: Tenants
+    description: Tenant context of the caller.
+  - name: Users
+    description: Admin management of tenant users.
+  - name: Customers
+    description: Customer CRUD with CSV export.
+  - name: Products
+    description: Product catalog, stock, and CSV export.
+  - name: Suppliers
+    description: Supplier CRUD with CSV export.
+  - name: Sales
+    description: Draft -> confirmed -> cancelled lifecycle with stock effects.
+  - name: Dashboard
+    description: Aggregated KPI counters.
+  - name: Reports
+    description: JSON aggregations and PDF documents.
+  - name: Audit
+    description: Append-only tenant audit trail (admin only).
+
+security:
+  - bearerAuth: []
+
+paths:
+  /healthz:
+    get:
+      tags: [System]
+      security: []
+      operationId: healthz
+      summary: Liveness probe
+      responses:
+        '200':
+          description: Process alive
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, example: ok }
+
+  /readyz:
+    get:
+      tags: [System]
+      security: []
+      operationId: readyz
+      summary: Readiness probe (checks Postgres and Redis)
+      responses:
+        '200':
+          description: All dependencies reachable
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, example: ready }
+        '503':
+          description: A dependency ping failed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /:
+    get:
+      tags: [System]
+      security: []
+      operationId: getApiRoot
+      summary: API descriptor
+      responses:
+        '200':
+          description: Service name and version
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [name, version]
+                properties:
+                  name: { type: string, example: goERP API }
+                  version: { type: string, example: v1 }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      security: []
+      operationId: login
+      summary: Authenticate and issue tokens
+      description: |
+        Rate limited: 5 attempts per source IP per 15 minutes (counter increments on every
+        attempt, successful logins included). Sets the refresh token as an HttpOnly cookie
+        `refresh_token` (Path=/api/v1/auth, SameSite=Lax, Secure outside development,
+        Max-Age 30 days). Any credential failure (unknown tenant, unknown email, wrong
+        password) returns the same generic 401.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Access token issued; refresh token in cookie
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoginResponse' }
+        '400':
+          description: Malformed body
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '429':
+          description: Too many login attempts
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      security: []
+      operationId: refreshToken
+      summary: Rotate refresh token and issue a new access token
+      description: |
+        Reads the `refresh_token` HttpOnly cookie (request body ignored). Refresh tokens are
+        single-use: the old session is revoked and a new cookie is set. On failure the cookie
+        is cleared.
+      responses:
+        '200':
+          description: New access token; rotated refresh cookie
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoginResponse' }
+        '401':
+          description: Cookie missing or session invalid
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      security: []
+      operationId: logout
+      summary: Revoke session and clear cookie
+      description: Best-effort revocation keyed by the SHA-256 of the `refresh_token` cookie;
+        always answers 200 and clears the cookie, even without one.
+      responses:
+        '200':
+          description: Always succeeds
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [status]
+                    properties:
+                      status: { type: string, example: logged_out }
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      security: [{ bearerAuth: [] }]
+      operationId: getCurrentUser
+      summary: Profile of the authenticated user
+      description: Role is re-read from the database, not taken from the JWT claim.
+      x-roles: admin,manager,operator,viewer
+      responses:
+        '200':
+          description: Current profile
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AuthUser' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: User row gone for the token identity
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /tenants/current:
+    get:
+      tags: [Tenants]
+      security: [{ bearerAuth: [] }]
+      operationId: getCurrentTenant
+      summary: Tenant of the caller
+      x-roles: admin,manager,operator,viewer
+      responses:
+        '200':
+          description: Tenant record
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Tenant' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Tenant row missing
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /users:
+    get:
+      tags: [Users]
+      security: [{ bearerAuth: [] }]
+      operationId: listUsers
+      summary: List tenant users
+      x-roles: admin
+      parameters:
+        - $ref: '#/components/parameters/LimitQ'
+        - $ref: '#/components/parameters/OffsetQ'
+      responses:
+        '200':
+          description: Paginated users
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/User' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /users/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    get:
+      tags: [Users]
+      security: [{ bearerAuth: [] }]
+      operationId: getUser
+      summary: Get a tenant user
+      x-roles: admin
+      responses:
+        '200':
+          description: User record
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/User' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags: [Users]
+      security: [{ bearerAuth: [] }]
+      operationId: updateUser
+      summary: Update name, role, or activation flag
+      description: Full replace of the three mutable fields. Password and status are not
+        updatable here. A user cannot deactivate their own account.
+      x-roles: admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserUpdateRequest' }
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/User' }
+        '400':
+          description: Malformed body or validation failure (e.g. deactivating self)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /customers:
+    get:
+      tags: [Customers]
+      security: [{ bearerAuth: [] }]
+      operationId: listCustomers
+      summary: List customers (or export CSV)
+      x-roles: admin,manager,operator,viewer
+      parameters:
+        - $ref: '#/components/parameters/LimitQ'
+        - $ref: '#/components/parameters/OffsetQ'
+        - $ref: '#/components/parameters/SearchQ'
+        - $ref: '#/components/parameters/ActiveQ'
+        - $ref: '#/components/parameters/FormatCsvQ'
+      responses:
+        '200':
+          description: |
+            Paginated customers; with `format=csv` a CSV attachment stream instead
+            (clientes.csv; columns nome,documento,email,telefone,ativo; first 10 000 rows,
+            limit/offset ignored).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Party' }
+            text/csv:
+              schema: { type: string }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Customers]
+      security: [{ bearerAuth: [] }]
+      operationId: createCustomer
+      summary: Create a customer
+      description: Returns the created object **bare** (no `data` wrapper).
+      x-roles: admin,manager,operator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PartyInput' }
+      responses:
+        '201':
+          description: Created customer (bare object)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Party' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Document already exists for this tenant (DUPLICATE_DOCUMENT)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /customers/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    get:
+      tags: [Customers]
+      security: [{ bearerAuth: [] }]
+      operationId: getCustomer
+      summary: Get a customer
+      description: Returns the object **bare** (no `data` wrapper). Soft-deleted reads as 404.
+      x-roles: admin,manager,operator,viewer
+      responses:
+        '200':
+          description: Customer (bare object)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Party' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags: [Customers]
+      security: [{ bearerAuth: [] }]
+      operationId: updateCustomer
+      summary: Replace a customer
+      description: |
+        Full replace — omitted optionals become NULL and omitted `active` becomes false.
+        Validation runs before existence, so an invalid payload on an unknown id yields 400,
+        not 404. Returns the object **bare**.
+      x-roles: admin,manager,operator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PartyInput' }
+      responses:
+        '200':
+          description: Updated customer (bare object)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Party' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Document conflict (DUPLICATE_DOCUMENT)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Customers]
+      security: [{ bearerAuth: [] }]
+      operationId: deleteCustomer
+      summary: Soft-delete a customer
+      description: Blocked while linked sales exist.
+      x-roles: admin
+      responses:
+        '204':
+          description: Deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Linked sales exist (CUSTOMER_HAS_SALES)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /products/low-stock:
+    get:
+      tags: [Products]
+      security: [{ bearerAuth: [] }]
+      operationId: listLowStockProducts
+      summary: Active products at or below a stock threshold
+      description: Unpaginated data array (ordered stock ASC, name ASC).
+      x-roles: admin,manager,operator,viewer
+      parameters:
+        - name: threshold
+          in: query
+          required: false
+          schema: { type: integer, default: 5, maximum: 1000000 }
+          description: '<=0 or absent falls back to 5; values above 1 000 000 are capped.'
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, default: 50 }
+          description: <=0 falls back to 50.
+      responses:
+        '200':
+          description: Low-stock products
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Product' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /products:
+    get:
+      tags: [Products]
+      security: [{ bearerAuth: [] }]
+      operationId: listProducts
+      summary: List products (or export CSV)
+      x-roles: admin,manager,operator,viewer
+      parameters:
+        - $ref: '#/components/parameters/LimitQ'
+        - $ref: '#/components/parameters/OffsetQ'
+        - $ref: '#/components/parameters/SearchQ'
+        - $ref: '#/components/parameters/ActiveQ'
+        - $ref: '#/components/parameters/FormatCsvQ'
+      responses:
+        '200':
+          description: |
+            Paginated products (created_at DESC); with `format=csv` a CSV attachment stream
+            instead (produtos.csv; columns nome,sku,preco,estoque,ativo; first 10 000 rows).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Product' }
+            text/csv:
+              schema: { type: string }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Products]
+      security: [{ bearerAuth: [] }]
+      operationId: createProduct
+      summary: Create a product
+      x-roles: admin,manager,operator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProductInput' }
+      responses:
+        '201':
+          description: Created product
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Product' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: SKU already exists for this tenant (DUPLICATE_SKU)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /products/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    get:
+      tags: [Products]
+      security: [{ bearerAuth: [] }]
+      operationId: getProduct
+      summary: Get a product
+      x-roles: admin,manager,operator,viewer
+      responses:
+        '200':
+          description: Product
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Product' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags: [Products]
+      security: [{ bearerAuth: [] }]
+      operationId: updateProduct
+      summary: Replace a product
+      description: Full replace with the same rules as create.
+      x-roles: admin,manager,operator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProductInput' }
+      responses:
+        '200':
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Product' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: SKU conflict (DUPLICATE_SKU)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Products]
+      security: [{ bearerAuth: [] }]
+      operationId: deleteProduct
+      summary: Soft-delete a product
+      x-roles: admin
+      responses:
+        '204':
+          description: Deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /suppliers:
+    get:
+      tags: [Suppliers]
+      security: [{ bearerAuth: [] }]
+      operationId: listSuppliers
+      summary: List suppliers (or export CSV)
+      x-roles: admin,manager,operator,viewer
+      parameters:
+        - $ref: '#/components/parameters/LimitQ'
+        - $ref: '#/components/parameters/OffsetQ'
+        - $ref: '#/components/parameters/SearchQ'
+        - $ref: '#/components/parameters/ActiveQ'
+        - $ref: '#/components/parameters/FormatCsvQ'
+      responses:
+        '200':
+          description: |
+            Paginated suppliers; with `format=csv` a CSV attachment stream instead
+            (fornecedores.csv; columns nome,documento,email,ativo; first 10 000 rows).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Party' }
+            text/csv:
+              schema: { type: string }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Suppliers]
+      security: [{ bearerAuth: [] }]
+      operationId: createSupplier
+      summary: Create a supplier
+      description: Returns the created object **bare** (no `data` wrapper).
+      x-roles: admin,manager,operator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PartyInput' }
+      responses:
+        '201':
+          description: Created supplier (bare object)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Party' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Document already exists for this tenant (DUPLICATE_DOCUMENT)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /suppliers/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    get:
+      tags: [Suppliers]
+      security: [{ bearerAuth: [] }]
+      operationId: getSupplier
+      summary: Get a supplier
+      description: Returns the object **bare** (no `data` wrapper).
+      x-roles: admin,manager,operator,viewer
+      responses:
+        '200':
+          description: Supplier (bare object)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Party' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags: [Suppliers]
+      security: [{ bearerAuth: [] }]
+      operationId: updateSupplier
+      summary: Replace a supplier
+      description: Full replace; validation precedes existence check. Returns **bare** object.
+      x-roles: admin,manager,operator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PartyInput' }
+      responses:
+        '200':
+          description: Updated supplier (bare object)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Party' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Document conflict (DUPLICATE_DOCUMENT)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Suppliers]
+      security: [{ bearerAuth: [] }]
+      operationId: deleteSupplier
+      summary: Soft-delete a supplier
+      description: No linked-entity guard (unlike customers).
+      x-roles: admin
+      responses:
+        '204':
+          description: Deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /sales:
+    get:
+      tags: [Sales]
+      security: [{ bearerAuth: [] }]
+      operationId: listSales
+      summary: List sales (or export CSV)
+      description: List rows carry no line items. Sales of soft-deleted customers are excluded.
+      x-roles: admin,manager,operator,viewer
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema: { type: string }
+          description: Case-insensitive match on customer name.
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [draft, confirmed, cancelled]
+          description: Unknown values simply match nothing.
+        - $ref: '#/components/parameters/LimitQ'
+        - $ref: '#/components/parameters/OffsetQ'
+        - name: from
+          in: query
+          required: false
+          schema: { type: string }
+          description: RFC3339 datetime or YYYY-MM-DD; filters created_at >= from. Unparsable is ignored.
+        - name: to
+          in: query
+          required: false
+          schema: { type: string }
+          description: RFC3339 datetime or YYYY-MM-DD; filters created_at < to. Unparsable is ignored.
+        - $ref: '#/components/parameters/FormatCsvQ'
+      responses:
+        '200':
+          description: |
+            Paginated sales; with `format=csv` a CSV attachment stream instead
+            (vendas.csv; columns cliente,status,total,criado_em; first 10 000 rows).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/SaleListItem' }
+            text/csv:
+              schema: { type: string }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Sales]
+      security: [{ bearerAuth: [] }]
+      operationId: createSale
+      summary: Create a draft sale
+      description: |
+        New sales always start as `draft`. Line totals are priced from the current product
+        price at creation time; no stock is checked or reserved at draft stage.
+      x-roles: admin,manager,operator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SaleInput' }
+      responses:
+        '201':
+          description: Draft sale with priced line items
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Sale' }
+        '400':
+          description: Malformed body or validation failure (unknown/inactive customer or product, empty items, quantity <= 0)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /sales/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    get:
+      tags: [Sales]
+      security: [{ bearerAuth: [] }]
+      operationId: getSale
+      summary: Get a sale with line items
+      x-roles: admin,manager,operator,viewer
+      responses:
+        '200':
+          description: Full sale (items always present)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Sale' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags: [Sales]
+      security: [{ bearerAuth: [] }]
+      operationId: updateSale
+      summary: Replace a draft sale
+      description: |
+        Allowed only while `status=draft` (otherwise 409 INVALID_STATUS). Items are re-priced
+        against current product prices within a transaction; old lines are replaced wholesale.
+      x-roles: admin,manager,operator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SaleInput' }
+      responses:
+        '200':
+          description: Updated draft sale
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Sale' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Not in draft (INVALID_STATUS)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Sales]
+      security: [{ bearerAuth: [] }]
+      operationId: deleteSale
+      summary: Soft-delete a draft sale
+      description: Draft-only; drafts never touched stock, so no inventory reversal occurs.
+      x-roles: admin,manager
+      responses:
+        '204':
+          description: Deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Not in draft (INVALID_STATUS)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /sales/{id}/confirm:
+    post:
+      tags: [Sales]
+      security: [{ bearerAuth: [] }]
+      operationId: confirmSale
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      summary: Confirm a draft sale
+      description: |
+        Transition draft -> confirmed only. Atomically decrements stock for every line
+        (guarded by `stock >= quantity` and product active); any shortfall rolls back the
+        whole transaction and reports INSUFFICIENT_STOCK.
+      x-roles: admin,manager,operator
+      responses:
+        '200':
+          description: Confirmed sale
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Sale' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Not in draft (INVALID_STATUS) or stock shortfall (INSUFFICIENT_STOCK)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /sales/{id}/cancel:
+    post:
+      tags: [Sales]
+      security: [{ bearerAuth: [] }]
+      operationId: cancelSale
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      summary: Cancel a confirmed sale
+      description: Transition confirmed -> cancelled only; restores stock for every line.
+      x-roles: admin,manager
+      responses:
+        '200':
+          description: Cancelled sale
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Sale' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Not confirmed (INVALID_STATUS)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /dashboard/summary:
+    get:
+      tags: [Dashboard]
+      security: [{ bearerAuth: [] }]
+      operationId: dashboardSummary
+      summary: KPI counters for the tenant
+      description: Financial fields (confirmedSalesCount, confirmedSalesTotal) are masked to
+        0 / "0" unless the caller role is admin or manager.
+      x-roles: admin,manager,operator,viewer
+      parameters:
+        - name: threshold
+          in: query
+          required: false
+          schema: { type: integer, default: 5, maximum: 1000000 }
+          description: Low-stock threshold; <=0 or absent falls back to 5, above 1 000 000 capped.
+      responses:
+        '200':
+          description: Summary metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/DashboardSummary' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /reports/sales-by-day:
+    get:
+      tags: [Reports]
+      security: [{ bearerAuth: [] }]
+      operationId: salesByDay
+      summary: Confirmed-sale counts and totals per day
+      x-roles: admin,manager
+      parameters:
+        - $ref: '#/components/parameters/FromQ'
+        - $ref: '#/components/parameters/ToQ'
+      responses:
+        '200':
+          description: One row per day (possibly empty)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/SalesByDayPoint' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /reports/top-products:
+    get:
+      tags: [Reports]
+      security: [{ bearerAuth: [] }]
+      operationId: topProducts
+      summary: Best-selling products in range
+      x-roles: admin,manager
+      parameters:
+        - $ref: '#/components/parameters/FromQ'
+        - $ref: '#/components/parameters/ToQ'
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, default: 5 }
+          description: <=0 or absent falls back to 5; no upper cap.
+      responses:
+        '200':
+          description: Ranked rows (possibly empty)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/TopProductRow' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /reports/sales-summary.pdf:
+    get:
+      tags: [Reports]
+      security: [{ bearerAuth: [] }]
+      operationId: salesSummaryPdf
+      summary: PDF summary of confirmed sales in range
+      x-roles: admin,manager
+      parameters:
+        - $ref: '#/components/parameters/FromQ'
+        - $ref: '#/components/parameters/ToQ'
+      responses:
+        '200':
+          description: Binary PDF (attachment vendas-resumo.pdf)
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /reports/sales/{id}/pdf:
+    get:
+      tags: [Reports]
+      security: [{ bearerAuth: [] }]
+      operationId: salePdf
+      summary: PDF order document for one sale
+      description: Broadest report role set — viewers may download single-sale PDFs.
+      x-roles: admin,manager,operator,viewer
+      parameters:
+        - $ref: '#/components/parameters/SaleIdParam'
+      responses:
+        '200':
+          description: Binary PDF (attachment venda-{id}.pdf)
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /audit-logs:
+    get:
+      tags: [Audit]
+      security: [{ bearerAuth: [] }]
+      operationId: listAuditLogs
+      summary: Tenant audit trail
+      description: Admin only. No filters exist beyond tenancy; pagination echoes applied values.
+      x-roles: admin
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, default: 50 }
+          description: <=0 or absent falls back to 50; no upper cap.
+        - $ref: '#/components/parameters/OffsetQ'
+      responses:
+        '200':
+          description: Paginated audit entries
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/AuditLog' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    IdParam:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      description: Entity UUID. An unparseable value behaves as a miss (404), not a 400.
+    SaleIdParam:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      description: Sale UUID; unparseable behaves as a miss (404).
+    LimitQ:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer, default: 20 }
+      description: Page size; <=0 or non-numeric falls back to 20. (No server-side upper cap.)
+    OffsetQ:
+      name: offset
+      in: query
+      required: false
+      schema: { type: integer, default: 0 }
+      description: Zero-based page start.
+    SearchQ:
+      name: search
+      in: query
+      required: false
+      schema: { type: string }
+      description: Case-insensitive substring filter.
+    ActiveQ:
+      name: active
+      in: query
+      required: false
+      schema: { type: boolean }
+      description: Filter by active flag; absent or unparsable means no filtering.
+    FormatCsvQ:
+      name: format
+      in: query
+      required: false
+      schema: { type: string, enum: [csv] }
+      description: Switches the response to a CSV attachment and bypasses pagination.
+    FromQ:
+      name: from
+      in: query
+      required: false
+      schema: { type: string }
+      description: Range start; RFC3339 datetime or YYYY-MM-DD. Defaults to now(UTC) minus 30 days; unparsable silently falls back.
+    ToQ:
+      name: to
+      in: query
+      required: false
+      schema: { type: string }
+      description: Range end; RFC3339 datetime or YYYY-MM-DD. Defaults to now(UTC); unparsable silently falls back.
+
+  responses:
+    Unauthorized:
+      description: Missing/invalid bearer token or tenant context (UNAUTHORIZED)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Forbidden:
+      description: Role not permitted on this route (FORBIDDEN)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    NotFound:
+      description: Entity missing, soft-deleted, or outside the tenant (NOT_FOUND)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    BadRequest:
+      description: Malformed JSON (INVALID_JSON) or failed validation (VALIDATION_ERROR)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    InternalError:
+      description: Unexpected failure (INTERNAL_ERROR)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  schemas:
+    ErrorBody:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        details:
+          type: object
+          additionalProperties: { type: string }
+
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error: { $ref: '#/components/schemas/ErrorBody' }
+
+    PaginatedEnvelope:
+      type: object
+      required: [pagination]
+      properties:
+        pagination:
+          type: object
+          required: [limit, offset, total]
+          properties:
+            limit: { type: integer }
+            offset: { type: integer }
+            total: { type: integer, format: int64 }
+
+    LoginRequest:
+      type: object
+      required: [tenantSlug, email, password]
+      properties:
+        tenantSlug: { type: string, description: Tenant slug; unknown slug fails as generic invalid credentials. }
+        email: { type: string, format: email }
+        password: { type: string }
+
+    AuthUser:
+      type: object
+      required: [id, tenantId, email, name, role]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        email: { type: string, format: email }
+        name: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+
+    LoginResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [accessToken, user]
+          properties:
+            accessToken: { type: string }
+            user: { $ref: '#/components/schemas/AuthUser' }
+
+    Role:
+      type: string
+      enum: [admin, manager, operator, viewer]
+
+    User:
+      type: object
+      required: [id, email, name, role, active, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        name: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        active: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    UserUpdateRequest:
+      type: object
+      required: [name, role, active]
+      description: Omitted `active` decodes as false — send it explicitly.
+      properties:
+        name: { type: string, minLength: 1 }
+        role: { $ref: '#/components/schemas/Role' }
+        active: { type: boolean }
+
+    Tenant:
+      type: object
+      required: [id, slug, name, status]
+      properties:
+        id: { type: string, format: uuid }
+        slug: { type: string }
+        name: { type: string }
+        status: { type: string }
+
+    Party:
+      type: object
+      description: Shared shape of customers and suppliers.
+      required: [id, name, active, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        document:
+          type: string
+          nullable: true
+          description: Digits-only normalized tax document (CPF/CNPJ).
+        documentType:
+          type: string
+          nullable: true
+          enum: [cpf, cnpj]
+        email:
+          type: string
+          nullable: true
+          format: email
+        phone: { type: string, nullable: true }
+        postalCode: { type: string, nullable: true }
+        street: { type: string, nullable: true }
+        streetNumber: { type: string, nullable: true }
+        city: { type: string, nullable: true }
+        state:
+          type: string
+          nullable: true
+          description: Two-letter uppercase federation unit.
+        active: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    PartyInput:
+      type: object
+      description: Full-replace payload for create and update. Omitted optionals store NULL; omitted `active` stores false.
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        document: { type: string, nullable: true }
+        documentType:
+          type: string
+          nullable: true
+          enum: [cpf, cnpj]
+          description: Required to be cpf/cnpj whenever document is provided.
+        email:
+          type: string
+          nullable: true
+          format: email
+          description: Must parse as an e-mail address when non-empty.
+        phone: { type: string, nullable: true }
+        postalCode: { type: string, nullable: true }
+        street: { type: string, nullable: true }
+        streetNumber: { type: string, nullable: true }
+        city: { type: string, nullable: true }
+        state:
+          type: string
+          nullable: true
+          minLength: 2
+          maxLength: 2
+          description: Normalized to uppercase; must be exactly 2 characters when provided.
+        active: { type: boolean, default: false }
+
+    Product:
+      type: object
+      required: [id, name, sku, price, stock, unit, active, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        sku: { type: string }
+        price: { $ref: '#/components/schemas/MoneyString' }
+        stock: { type: integer }
+        unit: { type: string, description: 'Uppercase unit code, e.g. UN or KG.' }
+        barcode: { type: string, nullable: true }
+        active: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    ProductInput:
+      type: object
+      description: Full-replace payload for create and update.
+      required: [name, sku, price]
+      properties:
+        name: { type: string, minLength: 1 }
+        sku: { type: string, minLength: 1, description: Unique per tenant. }
+        price:
+          type: string
+          description: Decimal string parseable as a number strictly greater than 0.
+        stock: { type: integer, minimum: 0, default: 0 }
+        unit: { type: string, default: UN, description: Stored uppercased and trimmed; empty defaults to UN. }
+        barcode: { type: string, nullable: true }
+        active: { type: boolean, default: false }
+
+    MoneyString:
+      type: string
+      pattern: '^[0-9]+\.[0-9]{2}$'
+      description: Decimal amount with exactly 2 fraction digits, e.g. "1234.56".
+
+    SaleStatus:
+      type: string
+      enum: [draft, confirmed, cancelled]
+
+    SaleListItem:
+      type: object
+      description: List-row variant — no line items.
+      required: [id, customerId, customerName, status, total, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        customerId: { type: string, format: uuid }
+        customerName: { type: string }
+        status: { $ref: '#/components/schemas/SaleStatus' }
+        total: { $ref: '#/components/schemas/MoneyString' }
+        notes: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    SaleItem:
+      type: object
+      required: [productId, productName, productSku, quantity, unitPrice, lineTotal]
+      properties:
+        productId: { type: string, format: uuid }
+        productName: { type: string }
+        productSku: { type: string }
+        quantity: { type: integer, minimum: 1 }
+        unitPrice: { $ref: '#/components/schemas/MoneyString' }
+        lineTotal: { $ref: '#/components/schemas/MoneyString' }
+
+    Sale:
+      type: object
+      description: Full variant including line items.
+      required: [id, customerId, customerName, status, total, items, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        customerId: { type: string, format: uuid }
+        customerName: { type: string }
+        status: { $ref: '#/components/schemas/SaleStatus' }
+        total: { $ref: '#/components/schemas/MoneyString' }
+        notes: { type: string, nullable: true }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/SaleItem' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    SaleInput:
+      type: object
+      description: Full-replace payload; creates and updates always produce/reprice a draft.
+      required: [customerId, items]
+      properties:
+        customerId: { type: string, format: uuid }
+        notes: { type: string, nullable: true }
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [productId, quantity]
+            properties:
+              productId: { type: string, format: uuid, description: Must reference an active product of the tenant. }
+              quantity: { type: integer, minimum: 1 }
+
+    DashboardSummary:
+      type: object
+      required: [activeCustomers, newCustomers30d, draftSales, lowStockAlerts, confirmedSalesCount, confirmedSalesTotal]
+      properties:
+        activeCustomers: { type: integer, format: int64 }
+        newCustomers30d: { type: integer, format: int64 }
+        draftSales: { type: integer, format: int64 }
+        lowStockAlerts: { type: integer, format: int64 }
+        confirmedSalesCount: { type: integer, format: int64, description: Masked to 0 for operator/viewer roles. }
+        confirmedSalesTotal: { type: string, description: Masked to "0" for operator/viewer roles. }
+
+    SalesByDayPoint:
+      type: object
+      required: [date, count, total]
+      properties:
+        date: { type: string, format: date }
+        count: { type: integer, format: int64 }
+        total: { type: string, description: Decimal money as string. }
+
+    TopProductRow:
+      type: object
+      required: [productName, productSku, quantity, revenue]
+      properties:
+        productName: { type: string }
+        productSku: { type: string }
+        quantity: { type: integer, format: int64 }
+        revenue: { type: string, description: Decimal money as string. }
+
+    AuditLog:
+      type: object
+      required: [id, action, entityType, entityId, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        actorUserId:
+          type: string
+          format: uuid
+          description: Omitted when the acting user is null.
+        action: { type: string, example: create }
+        entityType: { type: string, example: customer }
+        entityId: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }

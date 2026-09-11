@@ -1,0 +1,76 @@
+name: Backend CI
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'backend/**'
+      - 'fly.toml'
+      - '.github/workflows/backend.yml'
+      - '.github/workflows/deploy.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: goerp
+          POSTGRES_PASSWORD: goerp
+          POSTGRES_DB: goerp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U goerp"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: '1.25'
+      - name: Migrate
+        working-directory: backend
+        env:
+          DATABASE_URL: postgres://goerp:goerp@localhost:5432/goerp?sslmode=disable
+        run: go run ./cmd/migrate
+      - name: Lint
+        uses: golangci/golangci-lint-action@9fae48acfc02a90574d7c304a1758ef9895495fa
+        with:
+          version: v2.13.2
+          working-directory: backend
+      - name: Test
+        working-directory: backend
+        env:
+          DATABASE_URL: postgres://goerp:goerp@localhost:5432/goerp?sslmode=disable
+          REDIS_URL: redis://localhost:6379/0
+          JWT_ACCESS_SECRET: test-access
+          JWT_REFRESH_SECRET: test-refresh
+        run: |
+          go vet ./...
+          go test -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out | tail -1
+          go build ./...
+      - name: Integration tests
+        working-directory: backend
+        env:
+          DATABASE_URL: postgres://goerp:goerp@localhost:5432/goerp?sslmode=disable
+          APP_ENV: development
+          REDIS_URL: redis://localhost:6379/0
+          JWT_ACCESS_SECRET: test-access
+          JWT_REFRESH_SECRET: test-refresh
+        run: |
+          go run ./cmd/seed
+          go test -tags=integration ./internal/customers/... ./internal/dashboard/... ./internal/sales/... ./internal/reports/...
