@@ -14,17 +14,15 @@ Invoke `harness-clean-handoff` before closing. Record verification, blockers, ne
 
 - WIP=1.
 - Plan before editing.
-- Use standards from `agent-os/standards/`.
-- Use `agent-os/specs/` for meaningful work.
 - Completion requires evidence, not confidence.
 - Secrets stay server-only.
 
 ### goERP Project Context
 
 - Stack: Go 1.25+ (chi, pgx, sqlc, Atlas, Redis, gofpdf) + Vue 3 (FSD, PrimeVue, Pinia, Vue Query, Chart.js).
-- Plan: `plan.md` (phases 0–10). Context: `context.md` (brainstorm), canonical docs: `docs/README.md`.
+- Plan: `plan.md` (phases 0–10). Context: `context.md` (brainstorm), canonical overview: `README.md`.
 - Reference modules: `customers` (CRUD), `sales` (workflow), `dashboard` + `reports` (read-model).
-- RBAC: `docs/ROLES.md`; middleware `RequireRole`; frontend `shared/lib/roles.ts`.
+- RBAC: middleware `RequireRole`; frontend `shared/lib/roles.ts`.
 - Never create tenant-owned tables without `tenant_id`.
 - Never access tenant data without filtering by `tenant_id`.
 - API errors: `{ error: { code, message, details } }`.

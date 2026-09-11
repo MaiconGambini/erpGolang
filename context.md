@@ -1,4 +1,4 @@
-> **Note:** This file is a Portuguese brainstorming checklist from early project planning. **Canonical documentation** lives in [`docs/README.md`](docs/README.md) and [`README.md`](README.md). Portfolio 8.5+ scope (RBAC, reporting, users, audit) is implemented — see `docs/PRODUCT.md` and `docs/ROLES.md`.
+> **Note:** This file is a Portuguese brainstorming checklist from early project planning. The canonical project overview lives in [`README.md`](README.md). Portfolio 8.5+ scope (RBAC, reporting, users, audit) is implemented.
 
 Contexto técnico que costuma faltar
 1. Glossário do domínio

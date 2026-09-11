@@ -18,8 +18,6 @@ frontend/playwright-report/
 .opencode/
 goERP initial screens (1)/
 .maestri/
-docs/harness/traces/
-docs/harness/quality/
 *.pem
 *.key
 *.crt

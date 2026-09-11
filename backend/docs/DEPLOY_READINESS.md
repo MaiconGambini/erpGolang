@@ -26,7 +26,7 @@
 - [ ] Secrets not in Git; use `GOERP_ENV_FILE` on VPS
 - [ ] PostgreSQL and Redis not exposed to internet (VPS compose)
 - [ ] Migrations run before traffic (`cmd/migrate`, Fly `release_command`)
-- [ ] RBAC matrix in `docs/ROLES.md` matches deployed routes
+- [ ] RBAC middleware and route permissions match the deployed API
 
 ## Migrations
 
@@ -54,6 +54,6 @@
 - OpenAPI contract published at `contract/openapi.yaml`.
 - User mutations not written to audit log
 - No last-admin guard on user deactivation
-- Fly deploy does not include frontend (see `docs/CI_CD.md` Profile B)
+- Fly deploy does not include the frontend
 
-See also: `docs/RELIABILITY.md`, `DEPLOYMENT.md`, `docs/CI_CD.md`, `docs/ROLES.md`.
+See also: `DEPLOYMENT.md` and `.github/workflows/`.

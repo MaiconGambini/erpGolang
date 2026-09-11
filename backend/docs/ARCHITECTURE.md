@@ -66,4 +66,4 @@ cmd/api → internal/app → modules → gen/db + shared/* + platform/*
 - `DASHBOARD_AGGREGATES.md` — KPI definitions
 - `RATE_LIMITING.md` — Redis login limits
 - `AUTH_SESSION.md` — tokens and cookies
-- `../../docs/ROLES.md` — permission matrix
+- `../internal/platform/middleware/role.go` — backend role definitions

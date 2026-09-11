@@ -47,7 +47,7 @@ cmd/api -> internal/app -> modules -> shared/platform -> gen/db
 - Services map sqlc rows to DTOs in `service.go`.
 - Modules do not import each other's Go packages.
 - Cross-table reads/writes happen via sqlc inside service transactions (sales) or dedicated read-model modules (dashboard, reports).
-- RBAC via `RequireRole` middleware per `docs/ROLES.md`.
+- RBAC via `RequireRole` middleware and shared frontend role helpers.
 - Shared packages contain infrastructure-neutral helpers (`export`, `inventory`, `httpx`).
 
 ## Frontend Architecture
@@ -96,13 +96,10 @@ PostgreSQL is the source of truth. Redis is used for login rate limiting and `/r
 2. **VPS** — Docker Compose + Caddy (`deploy/`).
 3. **Fly.io** — API CD gated on Backend CI (`fly.toml`).
 
-See `DEPLOYMENT.md` and `docs/CI_CD.md`.
+See `DEPLOYMENT.md` and the workflows in `.github/workflows/`.
 
 ## Related Docs
 
 | Doc | Purpose |
 |---|---|
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Detailed subsystems, routes, API envelope |
-| [`docs/ROLES.md`](docs/ROLES.md) | RBAC matrix |
 | [`backend/docs/ARCHITECTURE.md`](backend/docs/ARCHITECTURE.md) | Backend route inventory |
-| [`docs/README.md`](docs/README.md) | Full documentation index |

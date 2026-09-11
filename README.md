@@ -15,15 +15,15 @@ Auth, catalog CRUD, sales with stock control, RBAC, CSV/PDF reports, and dashboa
 
 | Login | Dashboard (KPIs + charts) |
 |-------|---------------------------|
-| ![Login](docs/images/login.png) | ![Dashboard](docs/images/dashboard.png) |
+| ![Login](assets/images/login.png) | ![Dashboard](assets/images/dashboard.png) |
 
 | Sales workflow | Customer form (BR fields) |
 |----------------|---------------------------|
-| ![Sales](docs/images/sales.png) | ![Customer form](docs/images/customer-form.png) |
+| ![Sales](assets/images/sales.png) | ![Customer form](assets/images/customer-form.png) |
 
 | Login — light mode | Login — dark mode |
 |--------------------|-------------------|
-| ![Login light mode](docs/images/login-light.png) | ![Login dark mode](docs/images/login-dark.png) |
+| ![Login light mode](assets/images/login-light.png) | ![Login dark mode](assets/images/login-dark.png) |
 
 ---
 
@@ -90,7 +90,7 @@ Inspired by learning-oriented READMEs like [person-crud](https://github.com/Kozi
 
 - **Modular monolith composition** — registering domain modules behind a single `app.Module` interface and chi router.
 - **Multi-tenant isolation** — every tenant-owned table has `tenant_id`; JWT claims feed `tenantctx`; cross-tenant access returns `404` (not `403`).
-- **RBAC middleware** — `RequireRole` enforces `docs/ROLES.md` matrix on routes; viewer is read-only.
+- **RBAC middleware** — `RequireRole` enforces route permissions; viewer is read-only.
 - **Typed SQL with sqlc** — queries live in `.sql` files; generated Go code removes stringly-typed SQL in handlers.
 - **Transactional workflows** — sales `confirm` / `cancel` use `pgx` transactions to update status and product stock atomically.
 - **Concurrency control** — race between concurrent confirms closed with `SELECT ... FOR UPDATE` row locking plus a conditional `UPDATE ... WHERE status = $from`; pinned by a deterministic concurrency regression test (`TestConcurrentConfirmSingleDecrement`).
@@ -295,7 +295,7 @@ make validate
 ```text
 backend/                 Go API, migrations, sqlc queries
 frontend/                Vue 3 FSD application
-docs/                    Product, architecture, UX, CI/CD, images/
+assets/images/           README screenshots
 backend/docs/            Backend-specific runbooks
 deploy/                  Production compose + Caddy
 docker-compose.dev.yml   Local PostgreSQL and Redis
@@ -312,7 +312,7 @@ SECURITY.md              Vulnerability reporting
 - [x] Modular monolith with `app.Module` registration
 - [x] Multi-tenant schema and middleware
 - [x] Auth: login, refresh rotation, logout, JWT
-- [x] RBAC per `docs/ROLES.md`
+- [x] Role-based access control (RBAC)
 - [x] Customers CRUD + audit + integration tests
 - [x] Products CRUD + low-stock endpoint
 - [x] Suppliers CRUD
@@ -351,11 +351,7 @@ SECURITY.md              Vulnerability reporting
 
 | Doc | Purpose |
 |---|---|
-| [`docs/README.md`](docs/README.md) | Human-facing doc index |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | System shape and module boundaries |
-| [`docs/ROLES.md`](docs/ROLES.md) | RBAC matrix |
-| [`docs/PRODUCT.md`](docs/PRODUCT.md) | Product scope and journeys |
-| [`docs/UX_PATTERNS.md`](docs/UX_PATTERNS.md) | UI behavior patterns |
 | [`backend/docs/`](backend/docs/) | Auth, schema, tenant isolation, sales transactions |
 | [`SECURITY.md`](SECURITY.md) | Report security issues |
 
